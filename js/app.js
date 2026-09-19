@@ -83,7 +83,7 @@ class TrucoApp {
 
   bindEvents() {
     // Ações na mão
-    this.btnCoverToggle.addEventListener('click', () => {
+    this.btnCoverToggle?.addEventListener('click', () => {
       if (this.engine && this.engine.currentRound === 0) {
         this.showToast('Não é permitido encobrir carta na 1ª vasa!', 'warning');
         return;
@@ -92,95 +92,92 @@ class TrucoApp {
       this.btnCoverToggle.classList.toggle('active', this.coverNextCard);
     });
 
-    this.btnTruco.addEventListener('click', () => {
+    this.btnTruco?.addEventListener('click', () => {
       this.handlePlayerRequestBet();
     });
 
-    this.btnAcceptBet.addEventListener('click', () => {
+    this.btnAcceptBet?.addEventListener('click', () => {
       this.handlePlayerRespondBet('accept');
     });
 
-    this.btnRefuseBet.addEventListener('click', () => {
+    this.btnRefuseBet?.addEventListener('click', () => {
       this.handlePlayerRespondBet('refuse');
     });
 
-    this.btnRaiseBet.addEventListener('click', () => {
+    this.btnRaiseBet?.addEventListener('click', () => {
       this.handlePlayerRespondBet('raise');
     });
 
     // Mão de Onze
-    document.getElementById('btnMaoDeOnzePlay').addEventListener('click', () => {
+    document.getElementById('btnMaoDeOnzePlay')?.addEventListener('click', () => {
       this.handleMaoDeOnzeDecision(true);
     });
 
-    document.getElementById('btnMaoDeOnzeRun').addEventListener('click', () => {
+    document.getElementById('btnMaoDeOnzeRun')?.addEventListener('click', () => {
       this.handleMaoDeOnzeDecision(false);
     });
 
     // === CHAT PANEL ===
-    document.getElementById('btnOpenChat').addEventListener('click', () => {
+    document.getElementById('btnOpenChat')?.addEventListener('click', () => {
       this.toggleChatPanel();
     });
 
-    document.getElementById('btnCloseChat').addEventListener('click', () => {
+    document.getElementById('btnCloseChat')?.addEventListener('click', () => {
       this.closeChatPanel();
     });
 
-    document.getElementById('btnChatSend').addEventListener('click', () => {
+    document.getElementById('btnChatSend')?.addEventListener('click', () => {
       this.handleChatSend();
     });
 
-    this.chatInput.addEventListener('keydown', (e) => {
+    this.chatInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); this.handleChatSend(); }
     });
 
     // === SOLO MODAL ===
     document.querySelectorAll('#soloNumPlayers .segment-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn?.addEventListener('click', () => {
         document.querySelectorAll('#soloNumPlayers .segment-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this._soloNumPlayers = parseInt(btn.dataset.players, 10);
       });
     });
 
-    document.getElementById('btnConfirmSolo').addEventListener('click', () => {
-      const name = document.getElementById('soloPlayerName').value.trim() || 'Você';
+    document.getElementById('btnConfirmSolo')?.addEventListener('click', () => {
+      const name = document.getElementById('soloPlayerName')?.value?.trim() || 'Você';
       this.startSoloGame(this._soloNumPlayers, name);
     });
 
-    // Antigo quick-chat (mantido por compatibilidade, mas sem UI)
-    // nenhuma ação necessária
-
     // Modais de Criação e Entrada
-    document.getElementById('btnOpenCreateModal').addEventListener('click', () => {
+    document.getElementById('btnOpenCreateModal')?.addEventListener('click', () => {
       this.openModal(this.createRoomModal);
     });
 
-    document.getElementById('btnOpenJoinModal').addEventListener('click', () => {
+    document.getElementById('btnOpenJoinModal')?.addEventListener('click', () => {
       this.openModal(this.joinRoomModal);
     });
 
-    document.getElementById('btnOpenSoloModal').addEventListener('click', () => {
+    document.getElementById('btnOpenSoloModal')?.addEventListener('click', () => {
       this.openModal(document.getElementById('soloModal'));
     });
 
-    document.getElementById('btnConfirmCreate').addEventListener('click', () => {
+    document.getElementById('btnConfirmCreate')?.addEventListener('click', () => {
       this.handleCreateRoom();
     });
 
-    document.getElementById('btnConfirmJoin').addEventListener('click', () => {
+    document.getElementById('btnConfirmJoin')?.addEventListener('click', () => {
       this.handleJoinRoom();
     });
 
     document.querySelectorAll('.modal-close-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn?.addEventListener('click', (e) => {
         const modal = e.target.closest('.modal-overlay');
         if (modal) modal.classList.remove('active');
       });
     });
 
     // Botão de copiar código da sala
-    this.roomBadge.addEventListener('click', () => {
+    this.roomBadge?.addEventListener('click', () => {
       if (!this.roomConfig.id) return;
       const shareUrl = `${window.location.origin}${window.location.pathname}#sala=${this.roomConfig.id}`;
       navigator.clipboard.writeText(shareUrl).then(() => {
@@ -193,7 +190,7 @@ class TrucoApp {
 
     // Seletor de jogadores no modal de criação
     document.querySelectorAll('#createNumPlayers .segment-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn?.addEventListener('click', () => {
         document.querySelectorAll('#createNumPlayers .segment-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.roomConfig.numPlayers = parseInt(btn.dataset.players, 10);
@@ -201,7 +198,7 @@ class TrucoApp {
     });
 
     // Áudio toggle
-    document.getElementById('btnToggleAudio').addEventListener('click', (e) => {
+    document.getElementById('btnToggleAudio')?.addEventListener('click', (e) => {
       window.TrucoAudio.muted = !window.TrucoAudio.muted;
       e.currentTarget.textContent = window.TrucoAudio.muted ? '🔇 Mudo' : '🔊 Som';
       this.showToast(window.TrucoAudio.muted ? 'Sons desativados' : 'Sons ativados');
