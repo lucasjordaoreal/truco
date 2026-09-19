@@ -56,6 +56,7 @@ class TrucoApp {
 
     // Controles de ação
     this.btnTruco = document.getElementById('btnTruco');
+    this.btnFold = document.getElementById('btnFold');
     this.btnCoverToggle = document.getElementById('btnCoverToggle');
     this.betResponseBar = document.getElementById('betResponseBar');
     this.btnAcceptBet = document.getElementById('btnAcceptBet');
@@ -124,6 +125,10 @@ class TrucoApp {
 
     this.btnTruco?.addEventListener('click', () => {
       this.handlePlayerRequestBet();
+    });
+
+    this.btnFold?.addEventListener('click', () => {
+      this.handlePlayerConcede();
     });
 
     this.btnAcceptBet?.addEventListener('click', () => {
@@ -1034,6 +1039,7 @@ class TrucoApp {
   updateActionButtons() {
     if (this.isDealing) {
       if (this.btnTruco) this.btnTruco.style.display = 'none';
+      if (this.btnFold) this.btnFold.style.display = 'none';
       if (this.btnCoverToggle) this.btnCoverToggle.style.display = 'none';
       return;
     }
@@ -1053,6 +1059,16 @@ class TrucoApp {
     this.btnTruco.style.display = canRequestBet ? 'block' : 'none';
     if (canRequestBet) {
       this.btnTruco.textContent = `Pedir ${currentStage.nextLabel}!`;
+    }
+
+    const canConcede = (
+      this.engine.currentRound > 0 &&
+      !this.engine.handOver &&
+      !this.engine.gameOver &&
+      !this.engine.pendingBet
+    );
+    if (this.btnFold) {
+      this.btnFold.style.display = canConcede ? 'inline-flex' : 'none';
     }
 
     this.btnCoverToggle.style.display = (this.engine.currentRound > 0 && !this.engine.isMaoDeFerro && !this.engine.handOver) ? 'flex' : 'none';
@@ -1394,6 +1410,64 @@ class TrucoApp {
       });
       this.syncGameStateToClients();
     }
+  }
+
+  // Desistir da mão (a partir da 2ª vasa)
+  handlePlayerConcede() {
+    if (this.isDealing) return;
+    if (!this.engine || this.engine.handOver || this.engine.gameOver) return;
+    if (this.engine.currentRound === 0) {
+      this.showToast('Você só pode desistir a partir da segunda vasa!', 'warning');
+      return;
+    }
+    if (this.engine.pendingBet) {
+      this.showToast('Responda ao pedido de Truco antes de desistir!', 'warning');
+      return;
+    }
+
+    if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      this.executeConcedeHand(this.myPlayerIndex);
+    } else {
+      this.network.sendToHost({
+        type: 'CLIENT_CONCEDE_HAND',
+        playerIndex: this.myPlayerIndex
+      });
+    }
+  }
+
+  executeConcedeHand(playerIndex) {
+    if (!this.engine || this.engine.handOver || this.engine.gameOver) return;
+    const res = this.engine.concedeHand(playerIndex);
+    if (res.error) {
+      this.showToast(res.error, 'warning');
+      return;
+    }
+
+    this.stopTurnTimer();
+    if (this.btnFold) this.btnFold.style.display = 'none';
+    if (this.btnTruco) this.btnTruco.style.display = 'none';
+    if (this.btnCoverToggle) this.btnCoverToggle.style.display = 'none';
+
+    const playerName = this.engine.players[playerIndex] ? this.engine.players[playerIndex].name : 'Jogador';
+    const oppTeamName = res.winningTeam === 0 ? 'NÓS' : 'ELES';
+    const pts = res.pointsWon;
+
+    window.TrucoAudio.playCardSlide();
+    this.sendSpeechBubble(playerIndex, 'Desisto!');
+    this.triggerEventBanner('DESISTÊNCIA!', `${playerName} desistiu da mão. Equipe ${oppTeamName} leva +${pts} ponto${pts > 1 ? 's' : ''}!`);
+    this.updateScoreboard();
+
+    if (!this.isSinglePlayer && this.network && this.network.isHost) {
+      this.network.broadcast({
+        type: 'HAND_CONCEDED_EVENT',
+        playerIndex: playerIndex,
+        winningTeam: res.winningTeam,
+        pointsWon: pts
+      });
+      this.syncGameStateToClients();
+    }
+
+    this.handleHandFinished({ winningTeam: res.winningTeam });
   }
 
   toggleMaoDeOnzePeek() {
@@ -1976,6 +2050,18 @@ class TrucoApp {
         this.updateScoreboard();
         this.updateActionButtons();
       }
+    } else if (data.type === 'CLIENT_CONCEDE_HAND') {
+      if (!this.network || !this.network.isHost || !this.engine) return;
+      const fromIdx = this.engine.players.findIndex(p => p.id === fromPeerId);
+      if (fromIdx === -1) return;
+      this.executeConcedeHand(fromIdx);
+    } else if (data.type === 'HAND_CONCEDED_EVENT') {
+      const pName = this.engine.players[data.playerIndex] ? this.engine.players[data.playerIndex].name : 'Jogador';
+      const oppTeamName = data.winningTeam === 0 ? 'NÓS' : 'ELES';
+      const pts = data.pointsWon;
+      this.sendSpeechBubble(data.playerIndex, 'Desisto!');
+      this.triggerEventBanner('DESISTÊNCIA!', `${pName} desistiu da mão. Equipe ${oppTeamName} leva +${pts} ponto${pts > 1 ? 's' : ''}!`);
+      this.handleHandFinished({ winningTeam: data.winningTeam });
     } else if (data.type === 'ACTION_ERROR') {
       this.showToast(data.message, 'warning');
     } else if (data.type === 'REMATCH_START') {

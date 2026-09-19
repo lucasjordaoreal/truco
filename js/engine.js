@@ -401,6 +401,28 @@ class TrucoEngine {
     }
   }
 
+  // Desistir da mão atual (permitido a partir da 2ª vasa)
+  concedeHand(playerIndex) {
+    if (this.handOver || this.gameOver) return { error: 'A mão ou partida já terminou.' };
+    if (this.currentRound === 0) return { error: 'Desistência permitida apenas a partir da segunda vasa.' };
+    if (this.pendingBet) return { error: 'Responda ao pedido de Truco antes de desistir.' };
+
+    const player = this.players[playerIndex];
+    if (!player) return { error: 'Jogador inválido.' };
+
+    const opponentTeam = 1 - player.team;
+    const pointsWon = this.currentStake;
+
+    const res = this.resolveHand(opponentTeam, pointsWon, `${player.name} desistiu da rodada.`);
+    return {
+      success: true,
+      concedingPlayerIndex: playerIndex,
+      winningTeam: opponentTeam,
+      pointsWon: pointsWon,
+      ...res
+    };
+  }
+
   // Conclui a mão, adiciona pontuação e verifica fim de jogo
   resolveHand(winningTeam, points, reason) {
     this.handOver = true;

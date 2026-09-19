@@ -452,6 +452,17 @@
     touch-action: manipulation;
   }
 
+  .btn-action-fold {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 0 14px;
+    height: 36px;
+    min-height: 36px;
+    letter-spacing: 0.5px;
+    border-radius: 999px;
+    touch-action: manipulation;
+  }
+
   .btn-action-cover {
     font-size: 11px;
     padding: 0 14px;
@@ -1001,6 +1012,7 @@
   }
 
   .btn-action-truco,
+  .btn-action-fold,
   .btn-action-cover {
     border-radius: 8px;
     height: 28px;
