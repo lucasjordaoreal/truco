@@ -1,0 +1,1036 @@
+/* ============================================================
+   mobile.css - TRUCO PAULISTA - Responsivo Mobile 2026
+   Aplica APENAS em telas <= 768px.
+   Desktop (> 768px) permanece 100% intacto.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* ================================================================
+     BODY / VIEWPORT
+     ================================================================ */
+  body {
+    height: 100svh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* ================================================================
+     HEADER - compacto, sem quebra de linha
+     ================================================================ */
+  .app-header {
+    height: 44px;
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  /* Impede que o logo quebre em 2 linhas */
+  .logo-container {
+    gap: 5px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+
+  .logo-badge {
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  /* Wrapper interno do logo-text + logo-sub */
+  .logo-container > div:not(.logo-badge) {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .logo-text {
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    font-weight: 800;
+  }
+
+  .logo-sub {
+    font-size: 9px;
+    white-space: nowrap;
+    display: inline;
+  }
+
+  /* Header center - room pill */
+  .header-center {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .room-pill {
+    padding: 3px 7px;
+    font-size: 9px;
+    gap: 4px;
+    max-width: 120px;
+    overflow: hidden;
+  }
+
+  #roomBadgeText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Botoes do header */
+  .header-actions {
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .hud-btn {
+    font-size: 8px;
+    padding: 0 6px;
+    height: 28px;
+    min-height: 28px;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  /* ================================================================
+     GAME VIEWPORT
+     ================================================================ */
+  .game-viewport {
+    padding: 6px 6px 4px 6px;
+    gap: 0;
+  }
+
+  /* ================================================================
+     ARENA (FELTRO) - tamanho controlado
+     ================================================================ */
+  .truco-arena {
+    border-radius: 28px;
+    border-width: 5px;
+    flex: 1;
+    min-height: 0;
+    /* Evita overflow: calcula espaco disponivel */
+    max-height: calc(100dvh - 44px - 130px);
+  }
+
+  /* ================================================================
+     HUD PLACAR (topo da mesa)
+     ================================================================ */
+  .arena-hud {
+    top: 6px;
+    padding: 3px 8px;
+    gap: 6px;
+    border-radius: 20px;
+    font-size: 8px;
+  }
+
+  .hud-score-number {
+    font-size: 15px;
+    min-width: 14px;
+  }
+
+  .hud-team-tag {
+    font-size: 7px;
+    padding: 1px 4px;
+  }
+
+  .hud-tricks-row {
+    gap: 3px;
+  }
+
+  .trick-pip {
+    width: 7px;
+    height: 7px;
+  }
+
+  .hud-divider {
+    height: 16px;
+  }
+
+  .hud-stake-pill {
+    font-size: 7px;
+    padding: 1px 5px;
+    letter-spacing: 0;
+  }
+
+  /* ================================================================
+     WIDGET DE MANILHAS - compacto, sem labels de texto
+     ================================================================ */
+  .hud-manilhas-panel {
+    top: 4px;
+    right: 4px;
+    padding: 3px 5px 4px;
+    border-radius: 7px;
+    gap: 3px;
+    max-width: 120px;
+  }
+
+  .hud-manilhas-header {
+    font-size: 7px;
+    padding-bottom: 2px;
+    gap: 3px;
+  }
+
+  /* Oculta o sub-titulo de ordem dos naipes no header */
+  .hud-manilhas-order-sub {
+    display: none;
+  }
+
+  .hud-manilhas-cards {
+    gap: 3px;
+  }
+
+  /* Oculta completamente os labels (paus, copeta, etc.) */
+  .hud-card-label {
+    display: none;
+  }
+
+  /* Cartas mini menores */
+  .hud-mini-card {
+    width: 28px;
+    height: 40px;
+    padding: 2px 1px 1px;
+    border-radius: 4px;
+  }
+
+  .hud-card-emblem {
+    font-size: 5px;
+    padding: 0;
+  }
+
+  .hud-card-corner.top {
+    margin-top: 5px;
+  }
+
+  .hud-mini-card .m-rank {
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .hud-mini-card .m-suit {
+    font-size: 7px;
+    line-height: 1;
+  }
+
+  .hud-card-center {
+    font-size: 12px;
+  }
+
+  /* ================================================================
+     CENTRO DA MESA (VIRA + DROPZONE)
+     ================================================================ */
+  .arena-center {
+    gap: 8px;
+    flex-wrap: nowrap;
+    justify-content: center;
+  }
+
+  .trick-tabletop {
+    width: 140px;
+    height: 100px;
+    border-radius: 10px;
+  }
+
+  .trick-tabletop-label {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .arena-deck-station {
+    width: 50px;
+    height: 72px;
+  }
+
+  .deck-pile {
+    width: 48px;
+    height: 70px;
+    border-radius: 6px;
+  }
+
+  .deck-pile::after {
+    font-size: 7px;
+    letter-spacing: 1px;
+  }
+
+  .vira-mat {
+    padding: 4px 6px;
+  }
+
+  .vira-header-badge {
+    font-size: 8px;
+    margin-bottom: 3px;
+  }
+
+  .manilha-legend {
+    font-size: 7px;
+    padding: 1px 4px;
+    margin-top: 3px;
+  }
+
+  /* ================================================================
+     ASSENTOS DOS JOGADORES
+     ================================================================ */
+  .seat-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+    border-width: 1.5px;
+  }
+
+  .seat-tag {
+    font-size: 7px;
+    padding: 1px 5px;
+    max-width: 64px;
+  }
+
+  .dealer-chip {
+    width: 12px;
+    height: 12px;
+    font-size: 7px;
+    border-width: 1px;
+  }
+
+  .seat-hand-mini {
+    gap: 2px;
+  }
+
+  .mini-card {
+    width: 10px;
+    height: 15px;
+    border-radius: 2px;
+  }
+
+  /* Reposicionamento layout-4 */
+  .layout-4 .seat-pos-1,
+  .layout-4 .seat-1 {
+    left: 4px;
+  }
+
+  .layout-4 .seat-pos-3,
+  .layout-4 .seat-3 {
+    right: 4px;
+  }
+
+  /* Reposicionamento layout-6 */
+  .layout-6 .seat-pos-1,
+  .layout-6 .seat-1 {
+    bottom: 40px;
+    left: 10px;
+  }
+
+  .layout-6 .seat-pos-2,
+  .layout-6 .seat-2 {
+    top: 65px;
+    left: 10px;
+  }
+
+  .layout-6 .seat-pos-4,
+  .layout-6 .seat-4 {
+    top: 65px;
+    right: 10px;
+  }
+
+  .layout-6 .seat-pos-5,
+  .layout-6 .seat-5 {
+    bottom: 40px;
+    right: 10px;
+  }
+
+  .layout-6 .seat-pos-3,
+  .layout-6 .seat-3 {
+    top: 36px;
+  }
+
+  /* ================================================================
+     CARTAS NA MAO - touch target, fan visual
+     ================================================================ */
+  .card-item {
+    width: 60px;
+    height: 88px;
+    padding: 3px;
+    border-radius: 7px;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  .card-item:hover,
+  .card-item:active {
+    transform: translateY(-12px) scale(1.07);
+    z-index: 10;
+  }
+
+  .card-value {
+    font-size: 13px;
+  }
+
+  .card-suit-symbol {
+    font-size: 11px;
+  }
+
+  .card-center-icon {
+    font-size: 26px;
+  }
+
+  .manilha-emblem {
+    font-size: 6px;
+    padding: 1px 4px;
+    top: -7px;
+  }
+
+  /* Hand tray com fan de 3 cartas */
+  .player-hand-tray {
+    gap: 8px;
+    justify-content: center;
+    align-items: flex-end;
+  }
+
+  /* Leque suave nas 3 posicoes */
+  .player-hand-tray > .card-item:nth-child(1) {
+    transform-origin: center bottom;
+    transform: rotate(-4deg);
+    z-index: 1;
+  }
+
+  .player-hand-tray > .card-item:nth-child(2) {
+    transform-origin: center bottom;
+    transform: rotate(0deg);
+    z-index: 2;
+  }
+
+  .player-hand-tray > .card-item:nth-child(3) {
+    transform-origin: center bottom;
+    transform: rotate(4deg);
+    z-index: 1;
+  }
+
+  .player-hand-tray > .card-item:nth-child(1):hover,
+  .player-hand-tray > .card-item:nth-child(1):active {
+    transform: rotate(-4deg) translateY(-14px) scale(1.09);
+    z-index: 10;
+  }
+
+  .player-hand-tray > .card-item:nth-child(2):hover,
+  .player-hand-tray > .card-item:nth-child(2):active {
+    transform: rotate(0deg) translateY(-14px) scale(1.09);
+    z-index: 10;
+  }
+
+  .player-hand-tray > .card-item:nth-child(3):hover,
+  .player-hand-tray > .card-item:nth-child(3):active {
+    transform: rotate(4deg) translateY(-14px) scale(1.09);
+    z-index: 10;
+  }
+
+  /* ================================================================
+     DOCK INFERIOR - zona polegar
+     ================================================================ */
+  .player-command-dock {
+    gap: 5px;
+    margin-top: 4px;
+    flex-shrink: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .dock-actions-row {
+    padding: 4px 10px;
+    gap: 6px;
+    border-radius: 999px;
+  }
+
+  .btn-action-truco {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 0 16px;
+    height: 36px;
+    min-height: 36px;
+    letter-spacing: 0.5px;
+    border-radius: 999px;
+    touch-action: manipulation;
+  }
+
+  .btn-action-cover {
+    font-size: 11px;
+    padding: 0 14px;
+    height: 36px;
+    min-height: 36px;
+    border-radius: 999px;
+    touch-action: manipulation;
+  }
+
+  .dock-response-box {
+    padding: 4px 10px;
+    gap: 5px;
+    border-radius: 999px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .response-label {
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .btn-resp-accept,
+  .btn-resp-refuse,
+  .btn-resp-raise {
+    font-size: 11px;
+    padding: 0 10px;
+    height: 34px;
+    min-height: 34px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    touch-action: manipulation;
+  }
+
+  /* ================================================================
+     TURN OVERLAY (SUA VEZ + TIMER) - canto superior esquerdo
+     ================================================================ */
+  .turn-overlay {
+    position: fixed;
+    top: 48px;
+    left: 6px;
+    z-index: 500;
+    pointer-events: none;
+  }
+
+  .turn-overlay-inner {
+    padding: 5px 10px 5px 8px;
+    gap: 7px;
+    border-radius: 8px;
+  }
+
+  .turn-label {
+    font-size: 9px;
+    letter-spacing: 0.8px;
+  }
+
+  .turn-hint {
+    display: none;
+  }
+
+  .turn-timer-ring {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+
+  .timer-svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .turn-countdown {
+    font-size: 9px;
+  }
+
+  /* r=22 em 28px viewbox: ajuste dasharray */
+  .timer-fill {
+    stroke-dasharray: 138.2;
+  }
+
+  /* ================================================================
+     TOASTS
+     ================================================================ */
+  .toast-container {
+    top: 48px;
+    right: 8px;
+    left: 8px;
+    align-items: flex-end;
+  }
+
+  .toast {
+    max-width: 100%;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  /* ================================================================
+     BANNER DE EVENTO (TRUCO! etc)
+     ================================================================ */
+  .stage-banner {
+    padding: 9px 20px;
+    border-radius: 10px;
+  }
+
+  .banner-headline {
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+
+  .banner-subheadline {
+    font-size: 10px;
+  }
+
+  /* ================================================================
+     CHAT PANEL - full-width overlay
+     ================================================================ */
+  .chat-panel {
+    top: 44px;
+    right: -100vw;
+    width: 100vw;
+    bottom: 0;
+    border-left: none;
+    border-top: 1px solid var(--border-mild);
+  }
+
+  .chat-panel.is-open {
+    right: 0;
+  }
+
+  .chat-panel-header {
+    padding: 10px 14px;
+  }
+
+  .chat-input-row {
+    padding: 8px 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* font-size 16px: previne zoom automatico no iOS */
+  .chat-input {
+    font-size: 16px;
+    padding: 9px 10px;
+  }
+
+  .chat-send-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 13px;
+    touch-action: manipulation;
+  }
+
+  /* ================================================================
+     MODAIS - bottom sheet
+     ================================================================ */
+  .modal-overlay {
+    align-items: flex-end;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .modal-window {
+    width: 100%;
+    max-width: 100%;
+    padding: 20px 16px 16px;
+    border-radius: 18px 18px 0 0;
+    max-height: 88dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0;
+  }
+
+  .modal-title {
+    font-size: 16px;
+  }
+
+  /* Botoes CTA */
+  .btn-cta {
+    padding: 13px 20px;
+    font-size: 13px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .btn-outline {
+    padding: 11px 18px;
+    font-size: 12px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Inputs: 16px previne zoom iOS */
+  .form-input {
+    font-size: 16px;
+    padding: 11px 12px;
+    min-height: 44px;
+  }
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  .form-group label {
+    font-size: 11px;
+  }
+
+  .segment-btn {
+    padding: 9px 4px;
+    font-size: 11px;
+    min-height: 38px;
+    touch-action: manipulation;
+  }
+
+  /* ================================================================
+     MODAL MAO DE ONZE
+     ================================================================ */
+  .m11-window {
+    padding: 16px 14px;
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 18px 18px 0 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .m11-spotlight {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .m11-cards-container .card-item,
+  .m11-card-slot .card-item {
+    width: 46px;
+    height: 68px;
+    padding: 3px;
+  }
+
+  .m11-cards-container .card-item .card-value,
+  .m11-card-slot .card-item .card-value {
+    font-size: 10px;
+  }
+
+  .m11-cards-container .card-item .card-suit-symbol,
+  .m11-card-slot .card-item .card-suit-symbol {
+    font-size: 8px;
+  }
+
+  .m11-cards-container .card-item .card-center-icon,
+  .m11-card-slot .card-item .card-center-icon {
+    font-size: 20px;
+  }
+
+  .m11-rank-badge {
+    font-size: 16px;
+    padding: 1px 6px;
+  }
+
+  .m11-explain-text {
+    font-size: 11px;
+  }
+
+  .m11-title {
+    font-size: 15px;
+  }
+
+  .btn-m11-play {
+    font-size: 12px;
+    padding: 11px 12px;
+    min-height: 44px;
+  }
+
+  .btn-m11-run {
+    font-size: 11px;
+    padding: 11px 12px;
+    min-height: 44px;
+  }
+
+  .btn-m11-peek {
+    font-size: 10px;
+    padding: 5px 9px;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking .m11-title {
+    display: none;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking .m11-window {
+    border-radius: 40px !important;
+    width: auto !important;
+    max-width: 96vw !important;
+    padding: 6px 14px !important;
+  }
+
+  /* ================================================================
+     MODAL GAME OVER
+     ================================================================ */
+  .game-over-window {
+    padding: 24px 16px 18px;
+  }
+
+  .game-over-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+  }
+
+  #gameOverTitle {
+    font-size: 20px !important;
+  }
+
+  .go-team-score {
+    font-size: 28px;
+  }
+
+  .game-over-match-box {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .go-team {
+    min-width: 56px;
+  }
+
+  .series-stat-count {
+    font-size: 22px;
+  }
+
+  .series-box-row {
+    gap: 14px;
+  }
+
+  /* ================================================================
+     SCROLLBARS - invisiveis no mobile
+     ================================================================ */
+  .modal-window::-webkit-scrollbar,
+  .m11-window::-webkit-scrollbar,
+  .chat-messages::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  /* ================================================================
+     CARTAS VOADORAS - redimensionadas para mobile
+     ================================================================ */
+  .flight-card {
+    width: 50px;
+    height: 74px;
+  }
+
+  .deck-shuffle-rig {
+    width: 50px;
+    height: 72px;
+  }
+
+  .shuffle-half {
+    width: 50px;
+    height: 72px;
+  }
+
+  .shuffle-flutter-card {
+    width: 50px;
+    height: 72px;
+  }
+
+  .card-back-copag {
+    width: 50px;
+    height: 72px;
+    border-radius: 6px;
+  }
+
+} /* end @media (max-width: 768px) */
+
+
+/* ------------------------------------------------------------------
+   EXTRA SMALL - iPhones pequenos e Android compactos (375px)
+   ------------------------------------------------------------------ */
+@media (max-width: 375px) {
+
+  .logo-text {
+    font-size: 10px;
+  }
+
+  .logo-sub {
+    display: none;
+  }
+
+  .hud-btn {
+    font-size: 7px;
+    padding: 0 5px;
+    height: 26px;
+  }
+
+  .header-actions {
+    gap: 2px;
+  }
+
+  .card-item {
+    width: 52px;
+    height: 78px;
+  }
+
+  .card-value {
+    font-size: 12px;
+  }
+
+  .card-center-icon {
+    font-size: 22px;
+  }
+
+  .trick-tabletop {
+    width: 118px;
+    height: 90px;
+  }
+
+  .arena-center {
+    gap: 5px;
+  }
+
+  .player-hand-tray {
+    gap: 5px;
+  }
+
+  .seat-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+  }
+
+  .seat-tag {
+    font-size: 7px;
+    max-width: 52px;
+  }
+
+  .hud-mini-card {
+    width: 24px;
+    height: 36px;
+  }
+
+  .hud-card-center {
+    font-size: 10px;
+  }
+
+  .m11-cards-container .card-item,
+  .m11-card-slot .card-item {
+    width: 40px;
+    height: 60px;
+  }
+
+} /* end max-width: 375px */
+
+
+/* ------------------------------------------------------------------
+   LANDSCAPE MOBILE - celular deitado
+   ------------------------------------------------------------------ */
+@media (max-width: 896px) and (orientation: landscape) and (max-height: 500px) {
+
+  body {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app-header {
+    height: 36px;
+    padding: 0 8px;
+  }
+
+  .logo-sub {
+    display: none;
+  }
+
+  .logo-badge {
+    display: none;
+  }
+
+  .logo-text {
+    font-size: 10px;
+  }
+
+  .hud-btn {
+    font-size: 7px;
+    height: 24px;
+    padding: 0 5px;
+  }
+
+  .game-viewport {
+    padding: 4px 4px 4px 4px;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .truco-arena {
+    flex: 1;
+    border-radius: 20px;
+    border-width: 4px;
+    max-height: calc(100dvh - 36px - 8px);
+  }
+
+  .player-command-dock {
+    width: 110px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    flex-shrink: 0;
+    margin-top: 0;
+  }
+
+  .player-hand-tray {
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+  }
+
+  /* Cancela o fan em landscape: cartas em coluna */
+  .player-hand-tray > .card-item:nth-child(1),
+  .player-hand-tray > .card-item:nth-child(2),
+  .player-hand-tray > .card-item:nth-child(3) {
+    transform: none;
+  }
+
+  .player-hand-tray > .card-item:nth-child(1):hover,
+  .player-hand-tray > .card-item:nth-child(1):active,
+  .player-hand-tray > .card-item:nth-child(2):hover,
+  .player-hand-tray > .card-item:nth-child(2):active,
+  .player-hand-tray > .card-item:nth-child(3):hover,
+  .player-hand-tray > .card-item:nth-child(3):active {
+    transform: translateX(-8px) scale(1.07);
+    z-index: 10;
+  }
+
+  .card-item {
+    width: 42px;
+    height: 62px;
+  }
+
+  .dock-actions-row {
+    flex-direction: column;
+    border-radius: 14px;
+    padding: 6px 8px;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .btn-action-truco,
+  .btn-action-cover {
+    border-radius: 8px;
+    height: 28px;
+    font-size: 9px;
+    width: 100%;
+    padding: 0;
+  }
+
+  .arena-hud {
+    top: 4px;
+    padding: 2px 6px;
+    gap: 4px;
+  }
+
+  .hud-score-number {
+    font-size: 13px;
+  }
+
+  .arena-center {
+    gap: 6px;
+  }
+
+  .trick-tabletop {
+    width: 120px;
+    height: 80px;
+  }
+
+  .turn-overlay {
+    top: 40px;
+    left: 4px;
+  }
+
+} /* end landscape */

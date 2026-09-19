@@ -120,12 +120,6 @@ Por ser uma aplicação 100% estática (HTML, CSS e JavaScript puros), não há 
    ```
 3. Acesse `http://localhost:8080` no seu navegador.
 
-### Hospedagem no GitHub Pages
-1. Envie os arquivos para a branch principal (`main`) do seu repositório no GitHub.
-2. Vá em **Settings** > **Pages**.
-3. Em **Source**, selecione a branch `main` e a pasta `/root`.
-4. Salve para ter o jogo disponível publicamente no endereço `https://seu-usuario.github.io/seu-repositorio/`.
-
 ---
 
 ## Estrutura do Projeto
@@ -135,6 +129,7 @@ d:/truco/
 ├── index.html            # Estrutura da mesa, assentos, modais e HUDs
 ├── css/
 │   ├── main.css          # Variáveis de cores, layout geral, tipografia e modais
+│   ├── mobile.css        # Estilos específicos para dispositivos móveis
 │   ├── table.css         # Arena da mesa, cartas, assentos, tapete e descarte
 │   └── animations.css    # Animações de baralho, distribuição e efeitos visuais
 └── js/
