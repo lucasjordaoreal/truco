@@ -303,10 +303,11 @@ class TrucoApp {
     });
 
     const startMusicFromInteraction = () => {
+      window.TrucoAudio?.unlock?.();
       window.TrucoMusic?.start?.();
     };
-    document.addEventListener('pointerdown', startMusicFromInteraction);
-    document.addEventListener('keydown', startMusicFromInteraction);
+    document.addEventListener('pointerdown', startMusicFromInteraction, { passive: true });
+    document.addEventListener('keydown', startMusicFromInteraction, { passive: true });
   }
 
   openModal(modal) {

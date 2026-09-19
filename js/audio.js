@@ -20,8 +20,16 @@ class TrucoAudio {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
+  }
+
+  unlock() {
+    this.init();
+    if (this.ctx?.state === 'suspended') {
+      return this.ctx.resume().catch(() => {});
+    }
+    return Promise.resolve();
   }
 
   playCardSlide() {
@@ -388,7 +396,9 @@ class TrucoMusic {
       }
     }
 
-    if (this.ctx?.state === 'suspended') this.ctx.resume();
+    if (this.ctx?.state === 'suspended') {
+      await this.ctx.resume().catch(() => {});
+    }
     if (this.trackIndex < 0) {
       this.shuffleTracks();
       this.trackIndex = 0;
@@ -400,8 +410,9 @@ class TrucoMusic {
       }
       this.audio.play().then(() => {
         this.playing = true;
-      }).catch(() => {
+      }).catch((error) => {
         this.playing = false;
+        this.lastPlayError = error;
       });
     }
     if (!this.ctx) {

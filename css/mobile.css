@@ -2116,3 +2116,61 @@
     top: 325px;
   }
 }
+
+/* Faixa inferior estavel: a mao nao disputa espaco com a vira. */
+@media (max-width: 768px) and (orientation: portrait) {
+  .app-header {
+    display: flex;
+    position: fixed;
+    inset: 0 0 auto;
+    height: 54px;
+    z-index: 700;
+  }
+
+  .game-viewport {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding-top: 58px;
+  }
+
+  .truco-arena {
+    height: calc(100dvh - 70px);
+  }
+
+  .truco-arena::before {
+    bottom: 210px;
+  }
+
+  #viraContainer {
+    top: 155px;
+  }
+
+  .arena-center .trick-tabletop {
+    top: 330px;
+  }
+
+  .player-command-dock {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: min(360px, calc(100vw - 16px));
+    min-height: 126px;
+  }
+
+  .dock-actions-row {
+    height: auto;
+    min-height: 118px;
+    overflow: visible;
+  }
+
+  .player-hand-tray {
+    min-height: 126px;
+    align-items: flex-end;
+    padding-right: 100px;
+    padding-bottom: 2px;
+  }
+
+  .player-hand-tray > .card-item:nth-child(1),
+  .player-hand-tray > .card-item:nth-child(2),
+  .player-hand-tray > .card-item:nth-child(3) {
+    transform: none;
+  }
+}
