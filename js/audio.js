@@ -4,7 +4,9 @@
 class TrucoAudio {
   constructor() {
     this.ctx = null;
+    this.masterGain = null;
     this.muted = false;
+    this.volume = 0.7;
   }
 
   init() {
@@ -12,6 +14,9 @@ class TrucoAudio {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         this.ctx = new AudioContext();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.connect(this.ctx.destination);
+        this.masterGain.gain.value = this.muted ? 0 : this.volume;
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
@@ -46,7 +51,7 @@ class TrucoAudio {
 
     noise.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain);
     noise.start();
   }
 
@@ -77,7 +82,7 @@ class TrucoAudio {
 
     noise.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain);
     noise.start();
   }
 
@@ -114,7 +119,7 @@ class TrucoAudio {
 
     noise.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain);
     noise.start();
   }
 
@@ -151,7 +156,7 @@ class TrucoAudio {
 
       src.connect(flt);
       flt.connect(g);
-      g.connect(this.ctx.destination);
+      g.connect(this.masterGain);
       src.start(flickTime);
     }
 
@@ -167,7 +172,7 @@ class TrucoAudio {
     oscGain.gain.exponentialRampToValueAtTime(0.001, tapTime + 0.12);
 
     osc.connect(oscGain);
-    oscGain.connect(this.ctx.destination);
+    oscGain.connect(this.masterGain);
     osc.start(tapTime);
     osc.stop(tapTime + 0.13);
   }
@@ -189,7 +194,7 @@ class TrucoAudio {
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain);
     osc.start();
     osc.stop(this.ctx.currentTime + 0.3);
 
@@ -204,7 +209,7 @@ class TrucoAudio {
       gain2.gain.setValueAtTime(0.5, this.ctx.currentTime);
       gain2.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
       osc2.connect(gain2);
-      gain2.connect(this.ctx.destination);
+      gain2.connect(this.masterGain);
       osc2.start();
       osc2.stop(this.ctx.currentTime + 0.2);
     }, 90);
@@ -226,7 +231,7 @@ class TrucoAudio {
       gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.08 + 0.4);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.masterGain);
       osc.start(this.ctx.currentTime + idx * 0.08);
       osc.stop(this.ctx.currentTime + idx * 0.08 + 0.45);
     });
@@ -248,7 +253,7 @@ class TrucoAudio {
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.5);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain);
     osc.start();
     osc.stop(this.ctx.currentTime + 0.5);
   }
@@ -268,7 +273,7 @@ class TrucoAudio {
     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain);
     osc.start();
     osc.stop(this.ctx.currentTime + 0.1);
   }
@@ -291,9 +296,23 @@ class TrucoAudio {
     gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain);
     osc.start(startTime);
     osc.stop(startTime + duration);
+  }
+
+  setVolume(volume) {
+    this.volume = Math.max(0, Math.min(1, Number(volume) || 0));
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.03);
+    }
+  }
+
+  setMuted(muted) {
+    this.muted = muted;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setTargetAtTime(muted ? 0 : this.volume, this.ctx.currentTime, 0.03);
+    }
   }
 
   playTimeoutWarning() {
@@ -313,7 +332,7 @@ class TrucoAudio {
       gain.gain.exponentialRampToValueAtTime(0.01, noteStart + 0.14);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.masterGain);
       osc.start(noteStart);
       osc.stop(noteStart + 0.14);
     });
@@ -331,6 +350,7 @@ class TrucoMusic {
     this.trackIndex = -1;
     this.startPromise = null;
     this.trackGains = [];
+    this.volume = 0.16;
     this.tracks = Array.from({ length: 17 }, (_, index) => `music/music${String(index).padStart(2, '0')}.mp3`);
   }
 
@@ -373,10 +393,10 @@ class TrucoMusic {
       this.shuffleTracks();
       this.trackIndex = 0;
       this.audio.src = this.tracks[this.trackIndex];
-      if (this.gain) {
-        this.gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-      } else {
-        this.audio.volume = 0.16;
+        if (this.gain) {
+          this.gain.gain.setValueAtTime((this.trackGains[this.trackIndex] || 1) * this.volume, this.ctx.currentTime);
+        } else {
+          this.audio.volume = this.volume;
       }
       this.audio.play().then(() => {
         this.playing = true;
@@ -391,7 +411,7 @@ class TrucoMusic {
     if (!this.trackGains.length) {
       await this.analyzeTracks();
       if (this.playing && !this.muted) {
-        this.gain.gain.setTargetAtTime(this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime, 0.03);
+        this.gain.gain.setTargetAtTime(this.trackGains[this.trackIndex] * 0.16, this.ctx.currentTime, 0.03);
       }
       return;
     }
@@ -429,7 +449,7 @@ class TrucoMusic {
         }
         const rms = Math.max(Math.sqrt(sumSquares / sampleCount), 0.00001);
         const rmsDb = 20 * Math.log10(rms);
-        this.trackGains.push(Math.min(4, Math.pow(10, (targetDb - rmsDb) / 20)));
+          this.trackGains.push(Math.min(4, Math.pow(10, (targetDb - rmsDb) / 20)));
       } catch (_) {
         this.trackGains.push(1);
       }
@@ -455,10 +475,10 @@ class TrucoMusic {
     if (!this.audio || this.muted) return;
     this.trackIndex = (this.trackIndex + 1) % this.tracks.length;
     this.audio.src = this.tracks[this.trackIndex];
-    if (this.gain) {
-      this.gain.gain.setValueAtTime(this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime);
-    } else {
-      this.audio.volume = 0.16;
+      if (this.gain) {
+        this.gain.gain.setValueAtTime((this.trackGains[this.trackIndex] || 1) * this.volume, this.ctx.currentTime);
+      } else {
+        this.audio.volume = this.volume;
     }
     try {
       await this.audio.play();
@@ -471,11 +491,20 @@ class TrucoMusic {
   setMuted(muted) {
     this.muted = muted;
     if (this.gain && this.ctx) {
-      this.gain.gain.setTargetAtTime(muted ? 0 : this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime, 0.03);
+      this.gain.gain.setTargetAtTime(muted ? 0 : (this.trackGains[this.trackIndex] || 1) * this.volume, this.ctx.currentTime, 0.03);
     } else if (this.audio) {
       this.audio.muted = muted;
     }
     if (!muted) this.start();
+  }
+
+  setVolume(volume) {
+    this.volume = Math.max(0, Math.min(1, Number(volume) || 0));
+    if (this.gain && this.ctx && this.trackIndex >= 0) {
+      this.gain.gain.setTargetAtTime(this.muted ? 0 : (this.trackGains[this.trackIndex] || 1) * this.volume, this.ctx.currentTime, 0.03);
+    } else if (this.audio) {
+      this.audio.volume = this.volume;
+    }
   }
 }
 

@@ -15,10 +15,10 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="css/main.css?v=1.5.1">
+  <link rel="stylesheet" href="css/main.css?v=1.5.2">
   <link rel="stylesheet" href="css/table.css?v=1.5.1">
   <link rel="stylesheet" href="css/animations.css?v=1.5.1">
-  <link rel="stylesheet" href="css/mobile.css?v=1.5.1">
+  <link rel="stylesheet" href="css/mobile.css?v=1.5.2">
 
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -45,8 +45,16 @@
     </div>
 
     <div class="header-actions">
-      <button class="hud-btn" id="btnToggleAudio" title="Ativar/Desativar SOM">SOM</button>
-      <button class="hud-btn" id="btnToggleMusic" title="Ativar/Desativar Música">MÚSICA ON</button>
+      <div class="volume-control" title="Volume dos efeitos sonoros">
+        <button class="hud-btn" id="btnToggleAudio" title="Ativar/Desativar SOM">SOM</button>
+        <input class="volume-slider" id="sfxVolume" type="range" min="0" max="1" step="0.01" value="0.7"
+          aria-label="Volume dos efeitos sonoros">
+      </div>
+      <div class="volume-control" title="Volume da música">
+        <button class="hud-btn" id="btnToggleMusic" title="Ativar/Desativar Música">MÚSICA ON</button>
+        <input class="volume-slider" id="musicVolume" type="range" min="0" max="1" step="0.01" value="0.16"
+          aria-label="Volume da música">
+      </div>
       <button class="hud-btn" id="btnOpenRules" title="Regras do Truco">REGRAS</button>
       <button class="hud-btn" id="btnOpenChat" title="Chat da Mesa" style="position:relative;">CHAT <span
           class="chat-unread-badge" id="chatUnreadBadge" style="display:none;">!</span></button>
@@ -588,8 +596,8 @@
   <script src="js/engine.js?v=1.5.0"></script>
   <script src="js/bot.js?v=1.5.0"></script>
   <script src="js/network.js?v=1.5.2"></script>
-  <script src="js/audio.js?v=1.6.1"></script>
-  <script src="js/app.js?v=1.6.1"></script>
+  <script src="js/audio.js?v=1.7.0"></script>
+  <script src="js/app.js?v=1.7.0"></script>
 
   <script>
     document.getElementById('btnOpenRules')?.addEventListener('click', () => {

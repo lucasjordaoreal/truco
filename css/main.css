@@ -137,6 +137,19 @@ body {
   gap: 6px;
 }
 
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.volume-slider {
+  width: 54px;
+  height: 4px;
+  accent-color: var(--gold-light, #ffd700);
+  cursor: pointer;
+}
+
 .hud-btn {
   background: transparent;
   border: 1px solid var(--border-mild);

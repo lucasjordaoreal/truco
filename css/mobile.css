@@ -88,6 +88,14 @@
     flex-shrink: 0;
   }
 
+  .volume-control {
+    gap: 2px;
+  }
+
+  .volume-slider {
+    width: 34px;
+  }
+
   .hud-btn {
     font-size: 8px;
     padding: 0 6px;

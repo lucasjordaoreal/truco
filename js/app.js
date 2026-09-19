@@ -265,7 +265,7 @@ class TrucoApp {
 
     // Áudio toggle
     document.getElementById('btnToggleAudio')?.addEventListener('click', (e) => {
-      window.TrucoAudio.muted = !window.TrucoAudio.muted;
+      window.TrucoAudio.setMuted(!window.TrucoAudio.muted);
       e.currentTarget.textContent = window.TrucoAudio.muted ? 'MUDO' : 'SOM';
       this.showToast(window.TrucoAudio.muted ? 'Sons desativados' : 'Sons ativados');
     });
@@ -274,6 +274,29 @@ class TrucoApp {
       window.TrucoMusic.setMuted(!window.TrucoMusic.muted);
       e.currentTarget.textContent = window.TrucoMusic.muted ? 'MÚSICA OFF' : 'MÚSICA ON';
       this.showToast(window.TrucoMusic.muted ? 'Música desativada' : 'Música ativada');
+    });
+
+    const sfxVolume = document.getElementById('sfxVolume');
+    const musicVolume = document.getElementById('musicVolume');
+    const savedSfxVolume = Number(localStorage.getItem('trucoSfxVolume'));
+    const savedMusicVolume = Number(localStorage.getItem('trucoMusicVolume'));
+    if (Number.isFinite(savedSfxVolume)) {
+      sfxVolume.value = savedSfxVolume;
+      window.TrucoAudio.setVolume(savedSfxVolume);
+    }
+    if (Number.isFinite(savedMusicVolume)) {
+      musicVolume.value = savedMusicVolume;
+      window.TrucoMusic.setVolume(savedMusicVolume);
+    }
+    sfxVolume?.addEventListener('input', (e) => {
+      const volume = Number(e.currentTarget.value);
+      window.TrucoAudio.setVolume(volume);
+      localStorage.setItem('trucoSfxVolume', String(volume));
+    });
+    musicVolume?.addEventListener('input', (e) => {
+      const volume = Number(e.currentTarget.value);
+      window.TrucoMusic.setVolume(volume);
+      localStorage.setItem('trucoMusicVolume', String(volume));
     });
 
     const startMusicFromInteraction = () => {
