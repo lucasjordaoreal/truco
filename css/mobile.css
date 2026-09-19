@@ -1065,3 +1065,522 @@
   }
 
 } /* end landscape */
+
+/* ------------------------------------------------------------------
+   PORTRAIT MOBILE - mesa legivel e controles na zona do polegar
+   ------------------------------------------------------------------ */
+@media (max-width: 768px) and (orientation: portrait) {
+
+  .app-header {
+    height: 46px;
+    padding: 0 6px;
+    gap: 4px;
+  }
+
+  .logo-container {
+    max-width: 112px;
+  }
+
+  .logo-text {
+    font-size: 10px;
+  }
+
+  .logo-sub {
+    display: none;
+  }
+
+  .header-center {
+    justify-content: flex-start;
+  }
+
+  .room-pill {
+    max-width: 92px;
+    padding: 3px 5px;
+  }
+
+  .header-actions {
+    gap: 2px;
+  }
+
+  .volume-control {
+    gap: 0;
+  }
+
+  .volume-slider {
+    display: none;
+  }
+
+  .hud-btn {
+    min-width: 0;
+    padding: 0 5px;
+    font-size: 7px;
+    letter-spacing: 0;
+  }
+
+  .game-viewport {
+    padding: 4px;
+    justify-content: flex-start;
+    gap: 4px;
+  }
+
+  .truco-arena {
+    flex: 1 1 auto;
+    width: 100%;
+    max-height: none;
+    min-height: 0;
+    border-radius: 30px;
+    border-width: 4px;
+  }
+
+  .arena-hud {
+    top: 7px;
+    gap: 5px;
+    padding: 3px 7px;
+  }
+
+  .hud-score-number {
+    font-size: 16px;
+  }
+
+  .hud-stake-pill {
+    display: none;
+  }
+
+  .hud-manilhas-panel {
+    top: 42px;
+    right: 7px;
+    max-width: 112px;
+    padding: 3px 4px;
+    gap: 3px;
+  }
+
+  .hud-manilhas-header {
+    font-size: 7px;
+  }
+
+  .hud-manilhas-cards {
+    gap: 2px;
+  }
+
+  .hud-mini-card {
+    width: 24px;
+    height: 35px;
+  }
+
+  .hud-card-center {
+    font-size: 10px;
+  }
+
+  .arena-center {
+    position: absolute;
+    top: 52%;
+    left: 50%;
+    width: calc(100% - 22px);
+    transform: translate(-50%, -50%);
+    gap: 6px;
+    align-items: center;
+  }
+
+  .arena-deck-station {
+    width: 38px;
+    height: 56px;
+  }
+
+  .deck-pile,
+  .deck-shuffle-rig,
+  .shuffle-half,
+  .shuffle-flutter-card,
+  .card-back-copag {
+    width: 38px;
+    height: 56px;
+  }
+
+  .deck-pile::after {
+    font-size: 6px;
+  }
+
+  .trick-tabletop {
+    width: 112px;
+    height: 82px;
+  }
+
+  .trick-tabletop-label {
+    font-size: 7px;
+  }
+
+  .vira-mat {
+    padding: 3px 4px;
+  }
+
+  .vira-header-badge {
+    font-size: 7px;
+    margin-bottom: 2px;
+  }
+
+  .manilha-legend {
+    font-size: 6px;
+    margin-top: 2px;
+  }
+
+  .player-seat {
+    gap: 3px;
+  }
+
+  .seat-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .seat-tag {
+    max-width: 58px;
+    font-size: 7px;
+  }
+
+  .seat-hand-mini {
+    display: none;
+  }
+
+  .layout-4 .seat-pos-1,
+  .layout-4 .seat-1 {
+    left: 7px;
+  }
+
+  .layout-4 .seat-pos-3,
+  .layout-4 .seat-3 {
+    right: 7px;
+  }
+
+  .player-command-dock {
+    gap: 5px;
+    margin-top: 0;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .dock-actions-row,
+  .dock-response-box {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dock-actions-row {
+    min-height: 42px;
+    padding: 3px 6px;
+    gap: 5px;
+  }
+
+  .btn-action-truco,
+  .btn-action-fold,
+  .btn-action-cover,
+  .btn-resp-accept,
+  .btn-resp-refuse,
+  .btn-resp-raise {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 10px;
+    touch-action: manipulation;
+  }
+
+  .dock-response-box {
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding: 3px 6px;
+  }
+
+  .player-hand-tray {
+    width: 100%;
+    min-height: 96px;
+    gap: 6px;
+    padding: 4px 0 2px;
+  }
+
+  .card-item {
+    width: 58px;
+    height: 86px;
+  }
+
+  .card-item:hover,
+  .card-item:active {
+    transform: translateY(-9px) scale(1.04);
+  }
+
+  .player-hand-tray > .card-item:nth-child(1):hover,
+  .player-hand-tray > .card-item:nth-child(1):active {
+    transform: rotate(-4deg) translateY(-10px) scale(1.05);
+  }
+
+  .player-hand-tray > .card-item:nth-child(2):hover,
+  .player-hand-tray > .card-item:nth-child(2):active {
+    transform: translateY(-10px) scale(1.05);
+  }
+
+  .player-hand-tray > .card-item:nth-child(3):hover,
+  .player-hand-tray > .card-item:nth-child(3):active {
+    transform: rotate(4deg) translateY(-10px) scale(1.05);
+  }
+}
+
+@media (max-width: 375px) and (orientation: portrait) {
+  .logo-container {
+    max-width: 96px;
+  }
+
+  .logo-container > div:not(.logo-badge) {
+    display: none;
+  }
+
+  .header-center {
+    flex: 0 1 auto;
+  }
+
+  .room-pill {
+    max-width: 72px;
+  }
+
+  .hud-btn {
+    padding: 0 4px;
+    font-size: 6.5px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   MODO MAO DE ONZE - comandos compactos sem cobrir as cartas
+   ------------------------------------------------------------------ */
+@media (max-width: 768px) and (orientation: portrait) {
+  .m11-actions-dock {
+    gap: 6px;
+  }
+
+  .m11-actions-dock .btn-m11-play,
+  .m11-actions-dock .btn-m11-run {
+    min-width: 0;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 10px 8px;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking {
+    padding-bottom: 0 !important;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking .m11-window {
+    gap: 8px !important;
+    padding: 5px 8px !important;
+    max-width: calc(100vw - 12px) !important;
+    transform: translateY(0) scale(1) !important;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking .m11-header {
+    gap: 0 !important;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking .btn-m11-peek {
+    min-height: 30px;
+    padding: 5px 10px !important;
+    font-size: 10px !important;
+    white-space: nowrap;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking #m11PeekText {
+    display: none;
+  }
+
+  .modal-overlay.modal-mao-de-onze.is-peeking .m11-actions-dock {
+    display: none !important;
+  }
+
+  body:has(.modal-overlay.modal-mao-de-onze.is-peeking) .player-hand-tray {
+    transform: translateY(-76px);
+  }
+
+  body:has(.modal-overlay.modal-mao-de-onze.is-peeking) .dock-actions-row {
+    display: none;
+  }
+
+  body:has(.modal-overlay.modal-mao-de-onze.is-peeking) .player-command-dock {
+    gap: 0;
+  }
+
+  .stage-banner {
+    max-width: calc(100vw - 44px);
+    padding: 8px 14px;
+  }
+
+  .banner-headline {
+    font-size: 18px;
+  }
+
+  .turn-overlay {
+    top: 48px;
+    left: 6px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   HEADER MOBILE - composicao limpa e orientada a icones
+   ------------------------------------------------------------------ */
+@media (max-width: 768px) and (orientation: portrait) {
+  .app-header {
+    position: relative;
+    height: 54px;
+    padding: 0 10px;
+    background: linear-gradient(180deg, #191d1f 0%, #111415 100%);
+    border-bottom-color: rgba(200, 160, 60, 0.18);
+    gap: 0;
+  }
+
+  .logo-container {
+    gap: 7px;
+    max-width: 110px;
+    z-index: 1;
+  }
+
+  .logo-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    border-radius: 7px;
+    box-shadow: 0 3px 10px rgba(200, 160, 60, 0.18);
+  }
+
+  .logo-container > div:not(.logo-badge) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    min-width: 0;
+    max-width: 75px;
+    overflow: hidden;
+  }
+
+  .logo-text {
+    max-width: 75px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9px;
+    line-height: 1.1;
+    letter-spacing: 0.2px;
+  }
+
+  .logo-sub {
+    display: block;
+    font-size: 7px;
+    line-height: 1.1;
+    letter-spacing: 1.4px;
+    color: var(--gold-dim);
+  }
+
+  .header-center {
+    position: absolute;
+    left: 132px;
+    transform: none;
+    justify-content: center;
+    min-width: 0;
+    z-index: 2;
+  }
+
+  .room-pill {
+    height: 30px;
+    min-width: 78px;
+    max-width: 88px;
+    justify-content: center;
+    padding: 0 8px;
+    border-color: rgba(200, 160, 60, 0.7);
+    border-radius: 8px;
+    background: rgba(200, 160, 60, 0.08);
+    font-size: 9px;
+    letter-spacing: 0.4px;
+    box-shadow: inset 0 0 0 1px rgba(255, 215, 0, 0.04);
+  }
+
+  .room-pill > span:first-child {
+    display: none;
+  }
+
+  .room-pill .copy-icon {
+    font-size: 9px;
+  }
+
+  .header-actions {
+    gap: 4px;
+    margin-left: auto;
+    z-index: 3;
+  }
+
+  .volume-control {
+    gap: 0;
+  }
+
+  .volume-slider {
+    display: none;
+  }
+
+  .hud-btn,
+  .volume-control .hud-btn {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-color: rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--text-secondary);
+    font-size: 0;
+    letter-spacing: 0;
+    touch-action: manipulation;
+  }
+
+  .hud-btn::before {
+    font-size: 14px;
+    line-height: 1;
+    color: currentColor;
+  }
+
+  #btnToggleAudio::before { content: '\1F50A'; }
+  #btnToggleMusic::before { content: '\266B'; }
+  #btnOpenRules::before { content: '\2637'; font-size: 16px; }
+  #btnOpenChat::before { content: '\2026'; font-size: 18px; letter-spacing: 1px; }
+  #btnOpenLobby::before { content: '\25A6'; font-size: 16px; }
+
+  .hud-btn.is-active,
+  .hud-btn:hover,
+  .hud-btn:focus-visible {
+    background: rgba(200, 160, 60, 0.16);
+    border-color: rgba(200, 160, 60, 0.7);
+    color: var(--gold-text);
+    outline: none;
+  }
+
+  .chat-unread-badge {
+    top: -4px !important;
+    right: -4px !important;
+    min-width: 14px;
+    height: 14px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px !important;
+    line-height: 1;
+  }
+}
+
+@media (max-width: 375px) and (orientation: portrait) {
+  .logo-container {
+    max-width: 28px;
+  }
+
+  .logo-container > div:not(.logo-badge) {
+    display: none;
+  }
+
+  .header-center {
+    left: 42px;
+  }
+}

@@ -322,7 +322,7 @@ class TrucoApp {
     const peekText = document.getElementById('m11PeekText');
     const peekIcon = document.getElementById('m11PeekIcon');
     if (peekText) peekText.textContent = 'Espiar Mesa';
-    if (peekIcon) peekIcon.textContent = 'Espiar';
+    if (peekIcon) peekIcon.textContent = '\u25c9';
   }
 
   checkUrlInvite() {
@@ -1549,7 +1549,7 @@ class TrucoApp {
     const peekText = document.getElementById('m11PeekText');
     const peekIcon = document.getElementById('m11PeekIcon');
     if (peekText) peekText.textContent = isPeeking ? 'Expandir' : 'Espiar Mesa';
-    if (peekIcon) peekIcon.textContent = isPeeking ? 'Expandir' : 'Espiar';
+    if (peekIcon) peekIcon.textContent = isPeeking ? '\u25c0' : '\u25c9';
   }
 
   renderMaoDeOnzeModal() {
@@ -1560,7 +1560,7 @@ class TrucoApp {
     const peekText = document.getElementById('m11PeekText');
     const peekIcon = document.getElementById('m11PeekIcon');
     if (peekText) peekText.textContent = 'Espiar Mesa';
-    if (peekIcon) peekIcon.textContent = 'Espiar';
+    if (peekIcon) peekIcon.textContent = '\u25c9';
 
     const vira = this.engine.vira;
     const manilhaRank = this.engine.manilhaRank;
