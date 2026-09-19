@@ -109,3 +109,289 @@
   .turn-label { font-size: 12px; }
   .turn-hint  { display: none; }
 }
+
+/* ==========================================================================
+   ANIMAÇÕES DE BARALHO: RECOLHER, EMBARALHAR E DAR CARTAS
+   ========================================================================== */
+
+/* Estação do Baralho no Feltro */
+.arena-deck-station {
+  position: relative;
+  width: 72px;
+  height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 800px;
+  z-index: 15;
+}
+
+/* Pilha estática de cartas no feltro (maço com efeito de espessura 3D) */
+.deck-pile {
+  position: relative;
+  width: 70px;
+  height: 102px;
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+    135deg,
+    #132438 0px,
+    #132438 6px,
+    #0f1c2c 6px,
+    #0f1c2c 12px
+  );
+  border: 2px solid #3b82f6;
+  box-shadow: 
+    0 1px 0 #fff,
+    0 2px 0 #1e293b,
+    0 3px 0 #cbd5e1,
+    0 4px 0 #1e293b,
+    0 5px 0 #94a3b8,
+    0 6px 0 #0f172a,
+    0 12px 24px rgba(0,0,0,0.7);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  pointer-events: none;
+}
+
+.deck-pile::after {
+  content: "TRUCO";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: rgba(255, 215, 0, 0.35);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+/* Verso de Carta Clássico (Copag Navy/Gold) */
+.card-back-copag {
+  width: 70px;
+  height: 102px;
+  border-radius: 8px;
+  background: 
+    radial-gradient(circle at 50% 50%, #1e3a5f 0%, #0d1b2a 100%);
+  border: 3px solid #f8fafc;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.55);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.card-back-copag::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(212, 175, 55, 0.6);
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(212, 175, 55, 0.12) 0px,
+    rgba(212, 175, 55, 0.12) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+/* Miniatura do verso para mini-cards e mãos dos bots */
+.mini-card-back {
+  background: radial-gradient(circle at 50% 50%, #1e3a5f 0%, #0d1b2a 100%) !important;
+  border: 1px solid #d4af37 !important;
+}
+
+/* === RIG DE EMBARALHAMENTO (RIFFLE SHUFFLE) === */
+.deck-shuffle-rig {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 70px;
+  height: 102px;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.shuffle-half {
+  position: absolute;
+  width: 70px;
+  height: 102px;
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 50%, #1e3a5f 0%, #0d1b2a 100%);
+  border: 2px solid #f8fafc;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.65);
+}
+
+/* Animação Riffle Split & Interleave */
+.deck-shuffle-rig.active .shuffle-left {
+  animation: riffleLeft 1.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.deck-shuffle-rig.active .shuffle-right {
+  animation: riffleRight 1.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes riffleLeft {
+  0% {
+    transform: translate3d(0, 0, 0) rotateZ(0deg);
+  }
+  20% {
+    transform: translate3d(-38px, -12px, 20px) rotateZ(-14deg) rotateY(15deg);
+    box-shadow: -10px 14px 28px rgba(0,0,0,0.7);
+  }
+  45% {
+    transform: translate3d(-24px, -6px, 15px) rotateZ(-8deg) rotateY(10deg);
+  }
+  60% {
+    transform: translate3d(-12px, -2px, 8px) rotateZ(-4deg) rotateY(4deg);
+  }
+  78% {
+    transform: translate3d(-3px, -1px, 2px) rotateZ(-1deg);
+  }
+  88% {
+    transform: translate3d(0, -6px, 10px) rotateZ(0deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotateZ(0deg);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+}
+
+@keyframes riffleRight {
+  0% {
+    transform: translate3d(0, 0, 0) rotateZ(0deg);
+  }
+  20% {
+    transform: translate3d(38px, -12px, 20px) rotateZ(14deg) rotateY(-15deg);
+    box-shadow: 10px 14px 28px rgba(0,0,0,0.7);
+  }
+  45% {
+    transform: translate3d(24px, -6px, 15px) rotateZ(8deg) rotateY(-10deg);
+  }
+  60% {
+    transform: translate3d(12px, -2px, 8px) rotateZ(4deg) rotateY(-4deg);
+  }
+  78% {
+    transform: translate3d(3px, -1px, 2px) rotateZ(1deg);
+  }
+  88% {
+    transform: translate3d(0, -6px, 10px) rotateZ(0deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotateZ(0deg);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+}
+
+/* Micro-cartas intercalando no centro durante o riffle */
+.shuffle-flutter-card {
+  position: absolute;
+  width: 70px;
+  height: 102px;
+  border-radius: 8px;
+  background: #1e3a5f;
+  border: 1.5px solid #f8fafc;
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+  pointer-events: none;
+}
+
+.deck-shuffle-rig.active .shuffle-flutter-card {
+  animation: flutterInterleave 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.22s infinite;
+}
+
+@keyframes flutterInterleave {
+  0%   { opacity: 0; transform: translate3d(0, -10px, 10px) scale(0.96); }
+  50%  { opacity: 0.9; transform: translate3d(0, -2px, 5px) scale(1); }
+  100% { opacity: 0; transform: translate3d(0, 2px, 0) scale(0.98); }
+}
+
+/* Selo animado "Embaralhando..." */
+.shuffle-status-badge {
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 15, 20, 0.92);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gold-light);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 70;
+}
+
+.shuffle-status-badge.visible {
+  opacity: 1;
+}
+
+/* === CARTAS VOADORAS (DISTRIBUIÇÃO E RECOLHIMENTO) === */
+.flight-card {
+  position: fixed;
+  width: 70px;
+  height: 102px;
+  border-radius: 8px;
+  z-index: 9999;
+  pointer-events: none;
+  transform-origin: center center;
+  transition: transform 0.42s cubic-bezier(0.2, 0.85, 0.35, 1.12), opacity 0.35s ease;
+  will-change: transform, opacity;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.65);
+}
+
+/* Quando voa para um assento de bot (encolhe como mini-card) */
+.flight-card.target-mini {
+  transition: transform 0.38s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
+}
+
+/* Animação de revelação/flip da carta na mão */
+@keyframes cardDealFlipIn {
+  0% {
+    transform: translateY(24px) scale(0.7) rotateX(70deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-8px) scale(1.05) rotateX(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1) rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.card-item.deal-animated {
+  animation: cardDealFlipIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Animação de revelação da Vira */
+@keyframes viraDealReveal {
+  0% {
+    transform: scale(0.6) rotate(-35deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08) rotate(4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-6deg);
+    opacity: 1;
+  }
+}
+
+.vira-card-box.deal-reveal {
+  animation: viraDealReveal 0.48s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

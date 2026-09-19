@@ -41,6 +41,14 @@ class TrucoApp {
       document.getElementById('trickDot2')
     ];
 
+    // Elementos do Baralho e Animações de Mesa
+    this.tableDeckStation = document.getElementById('tableDeckStation');
+    this.deckPile = document.getElementById('deckPile');
+    this.deckShuffleRig = document.getElementById('deckShuffleRig');
+    this.shuffleStatusBadge = document.getElementById('shuffleStatusBadge');
+    this.isDealing = false;
+    this._pendingDealAnimation = false;
+
     // Controles de ação
     this.btnTruco = document.getElementById('btnTruco');
     this.btnCoverToggle = document.getElementById('btnCoverToggle');
@@ -385,7 +393,7 @@ class TrucoApp {
 
     this.renderSeats();
     if (autoStart) {
-      this.startRoundHand();
+      this.startRoundHand({ animate: true, isFirstRound: true });
     } else {
       this.triggerEventBanner('SALA ABERTA!', `Aguardando jogadores entrarem (código: ${this.roomConfig.id})...`);
     }
@@ -431,10 +439,259 @@ class TrucoApp {
     }
   }
 
-  startRoundHand() {
+  getDeckCenter() {
+    if (this.tableDeckStation) {
+      const rect = this.tableDeckStation.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+    }
+    if (this.table) {
+      const tableRect = this.table.getBoundingClientRect();
+      return { x: tableRect.left + tableRect.width / 2, y: tableRect.top + tableRect.height / 2 };
+    }
+    return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  }
+
+  animateCollectCards(callback) {
+    if (!this.table) {
+      callback?.();
+      return;
+    }
+
+    const { x: deckX, y: deckY } = this.getDeckCenter();
+    const cardsToCollect = [];
+
+    // 1. Cartas jogadas no tapete de descarte
+    this.trickDropzone?.querySelectorAll('.played-trick-card')?.forEach(el => cardsToCollect.push(el));
+    // 2. Carta na área da vira
+    this.viraContainer?.querySelectorAll('.card-item')?.forEach(el => cardsToCollect.push(el));
+    // 3. Cartas remanescentes na mão do jogador
+    this.myHandElement?.querySelectorAll('.card-item')?.forEach(el => cardsToCollect.push(el));
+    // 4. Mini cartas dos assentos
+    this.seatsContainer?.querySelectorAll('.mini-card')?.forEach(el => cardsToCollect.push(el));
+
+    if (cardsToCollect.length === 0) {
+      if (this.deckPile) this.deckPile.style.display = 'block';
+      callback?.();
+      return;
+    }
+
+    window.TrucoAudio?.playCardCollect?.();
+
+    const flights = [];
+    cardsToCollect.forEach(cardEl => {
+      const rect = cardEl.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const flight = document.createElement('div');
+      flight.className = 'flight-card card-back-copag';
+      flight.style.left = `${rect.left}px`;
+      flight.style.top = `${rect.top}px`;
+      flight.style.width = `${rect.width}px`;
+      flight.style.height = `${rect.height}px`;
+      flight.style.transition = 'transform 0.44s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.4s ease';
+      document.body.appendChild(flight);
+      flights.push({ el: flight, rect });
+
+      cardEl.style.visibility = 'hidden';
+    });
+
+    // Limpa os recipientes na mesa
+    if (this.trickDropzone) {
+      this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
+    }
+    if (this.viraContainer) this.viraContainer.innerHTML = '';
+    if (this.myHandElement) this.myHandElement.innerHTML = '';
+    document.querySelectorAll('.seat-hand-mini').forEach(el => el.innerHTML = '');
+
+    requestAnimationFrame(() => {
+      flights.forEach(({ el, rect }) => {
+        const dx = deckX - (rect.left + rect.width / 2);
+        const dy = deckY - (rect.top + rect.height / 2);
+        const rot = (Math.random() * 24 - 12);
+        el.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0.65) rotate(${rot}deg)`;
+        el.style.opacity = '0.85';
+      });
+    });
+
+    setTimeout(() => {
+      flights.forEach(f => f.el.remove());
+      if (this.deckPile) this.deckPile.style.display = 'block';
+      callback?.();
+    }, 450);
+  }
+
+  animateShuffleDeck(callback) {
+    window.TrucoAudio?.playCardShuffle?.();
+
+    if (this.deckPile) this.deckPile.style.display = 'none';
+    if (this.deckShuffleRig) {
+      this.deckShuffleRig.style.display = 'block';
+      this.deckShuffleRig.classList.add('active');
+    }
+    if (this.shuffleStatusBadge) {
+      this.shuffleStatusBadge.classList.add('visible');
+    }
+
+    setTimeout(() => {
+      if (this.deckShuffleRig) {
+        this.deckShuffleRig.classList.remove('active');
+        this.deckShuffleRig.style.display = 'none';
+      }
+      if (this.shuffleStatusBadge) {
+        this.shuffleStatusBadge.classList.remove('visible');
+      }
+      if (this.deckPile) {
+        this.deckPile.style.display = 'block';
+      }
+      callback?.();
+    }, 1250);
+  }
+
+  animateDealCards(callback) {
+    if (!this.engine || !this.engine.players) {
+      this.isDealing = false;
+      callback?.();
+      return;
+    }
+
+    this.isDealing = true;
+    const numPlayers = this.engine.numPlayers;
+    const starter = this.engine.handStarterIndex || 0;
+    const { x: deckX, y: deckY } = this.getDeckCenter();
+
+    // Limpa assentos e mãos para receber as cartas que estão chegando
+    document.querySelectorAll('.seat-hand-mini').forEach(el => el.innerHTML = '');
+    if (this.myHandElement) this.myHandElement.innerHTML = '';
+    if (this.viraContainer) this.viraContainer.innerHTML = '';
+
+    // Monta a ordem de entrega: 3 voltas na mesa (1 carta para cada jogador por volta) + vira
+    const dealQueue = [];
+    for (let round = 0; round < 3; round++) {
+      for (let p = 0; p < numPlayers; p++) {
+        const playerIdx = (starter + p) % numPlayers;
+        dealQueue.push({ type: 'player', playerIndex: playerIdx, cardRound: round });
+      }
+    }
+    dealQueue.push({ type: 'vira' });
+
+    const isBlindHand = !!this.engine.isMaoDeFerro;
+    const myHandCards = (this.engine.players[this.myPlayerIndex] && this.engine.players[this.myPlayerIndex].hand)
+      ? this.engine.players[this.myPlayerIndex].hand
+      : [];
+
+    dealQueue.forEach((item, seqIndex) => {
+      const delay = seqIndex * 70;
+
+      setTimeout(() => {
+        const pitchMod = 0.8 + (seqIndex / dealQueue.length) * 0.5;
+        window.TrucoAudio?.playCardDeal?.(pitchMod);
+
+        const flight = document.createElement('div');
+        flight.className = 'flight-card card-back-copag';
+        flight.style.left = `${deckX - 35}px`;
+        flight.style.top = `${deckY - 51}px`;
+        flight.style.width = '70px';
+        flight.style.height = '102px';
+        document.body.appendChild(flight);
+
+        let destX = deckX;
+        let destY = deckY;
+        let isMini = false;
+
+        if (item.type === 'player') {
+          if (item.playerIndex === this.myPlayerIndex) {
+            const trayRect = this.myHandElement.getBoundingClientRect();
+            const cardW = 78;
+            const gap = 12;
+            const totalW = 3 * cardW + 2 * gap;
+            const startX = trayRect.left + (trayRect.width - totalW) / 2;
+            destX = startX + item.cardRound * (cardW + gap) + cardW / 2;
+            destY = trayRect.top + trayRect.height / 2;
+          } else {
+            isMini = true;
+            flight.classList.add('target-mini');
+            const seatEl = document.getElementById(`seatBacks-${item.playerIndex}`) || document.getElementById(`seat-${item.playerIndex}`);
+            if (seatEl) {
+              const sRect = seatEl.getBoundingClientRect();
+              destX = sRect.left + sRect.width / 2;
+              destY = sRect.top + sRect.height / 2;
+            }
+          }
+        } else if (item.type === 'vira') {
+          const vMat = this.viraContainer.getBoundingClientRect();
+          if (vMat.width > 0 && vMat.height > 0) {
+            destX = vMat.left + vMat.width / 2;
+            destY = vMat.top + vMat.height / 2;
+          } else {
+            destX = deckX + 105;
+            destY = deckY;
+          }
+        }
+
+        requestAnimationFrame(() => {
+          const dx = destX - deckX;
+          const dy = destY - deckY;
+          if (isMini) {
+            flight.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0.24) rotate(0deg)`;
+          } else if (item.type === 'vira') {
+            flight.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.0) rotate(-6deg)`;
+          } else {
+            flight.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.05) rotate(0deg)`;
+          }
+        });
+
+        const landDuration = isMini ? 320 : 360;
+        setTimeout(() => {
+          flight.remove();
+
+          if (item.type === 'player') {
+            if (item.playerIndex === this.myPlayerIndex) {
+              const cardData = myHandCards[item.cardRound];
+              if (cardData) {
+                const cardEl = this.createCardElement(cardData, isBlindHand);
+                cardEl.classList.add('deal-animated');
+                cardEl.addEventListener('click', () => {
+                  this.handlePlayCard(cardData.id);
+                });
+                this.myHandElement.appendChild(cardEl);
+              }
+            } else {
+              const seatMiniTray = document.getElementById(`seatBacks-${item.playerIndex}`);
+              if (seatMiniTray) {
+                const mini = document.createElement('div');
+                mini.className = 'mini-card';
+                seatMiniTray.appendChild(mini);
+              }
+            }
+          } else if (item.type === 'vira') {
+            this.renderViraCard();
+            const vBox = this.viraContainer.querySelector('.vira-card-box');
+            if (vBox) vBox.classList.add('deal-reveal');
+          }
+
+          // Se for o último item da fila, conclui a animação
+          if (seqIndex === dealQueue.length - 1) {
+            setTimeout(() => {
+              this.isDealing = false;
+              callback?.();
+            }, 200);
+          }
+        }, landDuration);
+      }, delay);
+    });
+  }
+
+  startRoundHand(options = { animate: true, isFirstRound: false }) {
+    if (options && options.isFirstRound) {
+      this.startFirstRoundWithShuffleAndDeal();
+      return;
+    }
+
     const handState = this.engine.startNewHand();
-    window.TrucoAudio.playCardSlide();
     this.stopTurnTimer();
+    this.isDealing = true;
 
     // Limpa a mesa de descarte mantendo o label
     this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
@@ -444,8 +701,67 @@ class TrucoApp {
 
     this.updateScoreboard();
     this.updateDealerAndTurnHighlights();
+    this.updateActionButtons();
+
+    if (!this.isSinglePlayer && this.network && this.network.isHost) {
+      this.network.broadcast({
+        type: 'ROUND_DEAL_START',
+        handState: {
+          dealerIndex: this.engine.dealerIndex,
+          handStarterIndex: this.engine.handStarterIndex
+        }
+      });
+      this.syncGameStateToClients();
+    }
+
+    if (options && options.animate === false) {
+      this.isDealing = false;
+      this.renderViraCard();
+      this.renderMyHand();
+      this.finalizeHandStart(handState);
+    } else {
+      this.animateDealCards(() => {
+        this.finalizeHandStart(handState);
+      });
+    }
+  }
+
+  startFirstRoundWithShuffleAndDeal() {
+    const handState = this.engine.startNewHand();
+    this.stopTurnTimer();
+    this.isDealing = true;
+
+    this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
+    this.viraContainer.innerHTML = '';
+    this.myHandElement.innerHTML = '';
+    this.coverNextCard = false;
+    this.btnCoverToggle.classList.remove('active');
+    this.betResponseBar.style.display = 'none';
+
+    this.updateScoreboard();
+    this.updateDealerAndTurnHighlights();
+    this.updateActionButtons();
+
+    if (!this.isSinglePlayer && this.network && this.network.isHost) {
+      this.network.broadcast({
+        type: 'ROUND_COLLECT_SHUFFLE_EVENT',
+        isFirstRound: true
+      });
+      this.syncGameStateToClients();
+    }
+
+    this.animateShuffleDeck(() => {
+      this.animateDealCards(() => {
+        this.finalizeHandStart(handState);
+      });
+    });
+  }
+
+  finalizeHandStart(handState) {
+    this.isDealing = false;
     this.renderViraCard();
     this.renderMyHand();
+    this.updateDealerAndTurnHighlights();
     this.updateActionButtons();
 
     if (!this.isSinglePlayer && this.network && this.network.isHost) {
@@ -608,6 +924,11 @@ class TrucoApp {
   }
 
   updateActionButtons() {
+    if (this.isDealing) {
+      if (this.btnTruco) this.btnTruco.style.display = 'none';
+      if (this.btnCoverToggle) this.btnCoverToggle.style.display = 'none';
+      return;
+    }
     if (!this.engine || !this.engine.players || !this.engine.players[this.myPlayerIndex]) return;
     const myTeam = this.engine.players[this.myPlayerIndex].team;
     const currentStage = TrucoConstants.BET_STAGES.find(s => s.value === this.engine.currentStake);
@@ -634,6 +955,7 @@ class TrucoApp {
   // ==========================================
 
   handlePlayCard(cardId) {
+    if (this.isDealing) return;
     if (!this.engine) return;
     if (this.engine.currentTurnIndex !== this.myPlayerIndex) {
       this.showToast('Aguarde a sua vez de jogar!', 'warning');
@@ -778,8 +1100,18 @@ class TrucoApp {
     // Apenas o Host ou partida solo inicia a próxima mão
     if (this.isSinglePlayer || (this.network && this.network.isHost)) {
       setTimeout(() => {
-        this.startRoundHand();
-      }, 2500);
+        if (!this.isSinglePlayer && this.network && this.network.isHost) {
+          this.network.broadcast({
+            type: 'ROUND_COLLECT_SHUFFLE_EVENT',
+            isFirstRound: false
+          });
+        }
+        this.animateCollectCards(() => {
+          this.animateShuffleDeck(() => {
+            this.startRoundHand({ animate: true, isFirstRound: false });
+          });
+        });
+      }, 1500);
     }
   }
 
@@ -788,6 +1120,7 @@ class TrucoApp {
   // ==========================================
 
   handlePlayerRequestBet() {
+    if (this.isDealing) return;
     if (!this.engine) return;
 
     if (this.isSinglePlayer || (this.network && this.network.isHost)) {
@@ -950,6 +1283,7 @@ class TrucoApp {
   // ==========================================
 
   checkNextTurnAction() {
+    if (this.isDealing) return;
     if (!this.engine || this.engine.handOver || this.engine.gameOver) return;
 
     const currentIdx = this.engine.currentTurnIndex;
@@ -963,6 +1297,7 @@ class TrucoApp {
       if (!bot) return;
 
       setTimeout(() => {
+        if (this.isDealing) return;
         if (bot.shouldRequestTruco()) {
           const betRes = this.engine.requestBet(currentIdx);
           if (!betRes.error) {
@@ -1030,6 +1365,7 @@ class TrucoApp {
 
   startTurnTimer() {
     this.stopTurnTimer();
+    if (this.isDealing) return;
     if (!this.turnOverlay) return;
 
     this._turnTimerRemaining = 30;
@@ -1152,7 +1488,7 @@ class TrucoApp {
 
     const hasWaitingSlots = this.engine.players.some(p => p.name.startsWith('Aguardando'));
     if (!this.engine.vira && !hasWaitingSlots) {
-      this.startRoundHand();
+      this.startRoundHand({ animate: true, isFirstRound: true });
     } else {
       this.renderSeats();
       this.syncGameStateToClients();
@@ -1363,6 +1699,17 @@ class TrucoApp {
         this.showToast(`${name} pediu revanche!`, 'info');
         this.addChatMessage('system', '', `${name} pediu revanche!`);
       }
+    } else if (data.type === 'ROUND_COLLECT_SHUFFLE_EVENT') {
+      this._pendingDealAnimation = true;
+      if (data.isFirstRound) {
+        this.animateShuffleDeck();
+      } else {
+        this.animateCollectCards(() => {
+          this.animateShuffleDeck();
+        });
+      }
+    } else if (data.type === 'ROUND_DEAL_START') {
+      this._pendingDealAnimation = true;
     } else if (data.type === 'STATE_SYNC') {
       if (!this.engine) {
         this.engine = new TrucoEngine({ numPlayers: data.numPlayers });
@@ -1404,13 +1751,26 @@ class TrucoApp {
         }));
       }
 
-      this.updateScoreboard();
-      this.renderSeats();
-      this.renderViraCard();
-      this.renderMyHand();
-      this.renderTableCards(this.engine.roundCards);
-      this.updateDealerAndTurnHighlights();
-      this.updateActionButtons();
+      if (this._pendingDealAnimation) {
+        this._pendingDealAnimation = false;
+        this.updateScoreboard();
+        this.renderSeats();
+        this.animateDealCards(() => {
+          this.renderViraCard();
+          this.renderMyHand();
+          this.renderTableCards(this.engine.roundCards);
+          this.updateDealerAndTurnHighlights();
+          this.updateActionButtons();
+        });
+      } else {
+        this.updateScoreboard();
+        this.renderSeats();
+        this.renderViraCard();
+        this.renderMyHand();
+        this.renderTableCards(this.engine.roundCards);
+        this.updateDealerAndTurnHighlights();
+        this.updateActionButtons();
+      }
 
       if (this.engine.pendingBet) {
         this.showBetResponseUI(this.engine.pendingBet);
@@ -1732,7 +2092,7 @@ class TrucoApp {
         });
       }
 
-      this.startRoundHand();
+      this.startRoundHand({ animate: true, isFirstRound: true });
     } else if (this.network && !this.network.isHost) {
       this.network.sendToHost({
         type: 'REQUEST_REMATCH'

@@ -121,8 +121,19 @@
       <!-- Assentos dos Jogadores ao Redor da Mesa -->
       <div id="seatsContainer"></div>
 
-      <!-- Centro da Mesa: Vira & Manilhas + Dropzone de Vasas -->
+      <!-- Centro da Mesa: Baralho, Vira & Manilhas + Dropzone de Vasas -->
       <div class="arena-center">
+        <!-- Estação do Baralho (Maço) -->
+        <div class="arena-deck-station" id="tableDeckStation">
+          <div class="deck-pile" id="deckPile"></div>
+          <div class="deck-shuffle-rig" id="deckShuffleRig" style="display: none;">
+            <div class="shuffle-half shuffle-left"></div>
+            <div class="shuffle-half shuffle-right"></div>
+            <div class="shuffle-flutter-card"></div>
+          </div>
+          <div class="shuffle-status-badge" id="shuffleStatusBadge">Embaralhando...</div>
+        </div>
+
         <!-- Estação da Vira -->
         <div id="viraContainer"></div>
 
