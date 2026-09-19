@@ -32,13 +32,17 @@ Jogue **solo contra bots inteligentes** ou convide amigos para partidas **multip
 - **Áudio Procedural Realista (Web Audio API)**:
   - Síntese de áudio procedural sem dependência de arquivos externos de som.
   - Sons de atrito de carta no feltro, batida firme na mesa ao pedir Truco, sino de canga (empate), chimes de vitória, derrota e alertas de contagem regressiva.
+  - Efeitos progressivos de contagem regressiva, com tons mais agudos e curtos conforme o tempo do turno termina, além de alerta sonoro de timeout.
+  - **Trilha sonora integrada** com 17 faixas em reprodução contínua e aleatória, análise automática de volume para equilibrar as músicas e botão independente para ligar ou desligar a música.
+  - Controles separados para silenciar os efeitos sonoros e a música de fundo.
 
 - **HUD e Interface Completa**:
   - **Placar Interativo**: Contagem clara de pontos de *Nós* e *Eles*, valor da aposta atual e marcadores de vasas da rodada (pips coloridos).
   - **Guia de Manilhas no Topo**: Exibe em tempo real a carta manilha da rodada e a ordem exata de força dos quatro naipes.
   - **Temporizador Circular**: Indicador visual e sonoro de tempo de turno para cada jogador na mesa.
   - **Balões de Fala e Provocações**: Frases clássicas de Truco disparadas em apostas, corridas, vitórias e blefes.
-  - **Chat Integrado**: Menu de mensagens rápidas e chat de texto aberto para comunicação entre os jogadores.
+  - **Chat Integrado**: Painel lateral com mensagens rápidas, chat de texto aberto, indicador de mensagens não lidas e suporte a conversas entre jogadores.
+  - **Chat Inteligente dos Bots**: Bots reconhecem intenções como saudações, provocações, pedidos de Truco, comemorações e reclamações, respondendo com falas contextualizadas de acordo com o placar e o momento da partida.
   - **Sistema de Série e Revanche**: Histórico acumulado de vitórias em partidas consecutivas entre as mesmas equipes.
 
 - **Encobrir Carta (Carta Coberta)**:
@@ -137,7 +141,7 @@ d:/truco/
     ├── deck.js           # Criação, embaralhamento e cálculo de força das cartas
     ├── engine.js         # Máquina de regras oficiais do Truco Paulista
     ├── bot.js            # Inteligência artificial dos bots (avaliação, apostas e blefes)
-    ├── audio.js          # Efeitos sonoros procedurais via Web Audio API
+    ├── audio.js          # Efeitos sonoros e trilha musical via Web Audio API
     ├── network.js        # Camada de comunicação de rede e sincronização multiplayer
     └── app.js            # Controlador principal da interface, animações e fluxo do jogo
 ```
