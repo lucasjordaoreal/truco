@@ -2467,8 +2467,8 @@ class TrucoApp {
         this.network.sendToHost(msg);
       }
     } else if (this.isSinglePlayer) {
-      // Bots reagem com chance aleatória
-      this._botChatReaction();
+      // Bots reagem de forma inteligente ao que o jogador escreveu
+      this._botChatReaction(text);
     }
   }
 
@@ -2480,26 +2480,493 @@ class TrucoApp {
     this.sendChatMessageDirect(text);
   }
 
-  /** Bot responde ao chat do jogador com uma das frases aleatórias */
-  _botChatReaction() {
+  // =========================================================================
+  // SISTEMA INTELIGENTE DE CHAT DOS BOTS
+  // =========================================================================
+
+  /**
+   * Detecta a intenção da mensagem do jogador usando classificação por palavras-chave.
+   * Retorna um array de intents ordenado por confiança.
+   */
+  _detectChatIntent(text) {
+    const t = text.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .replace(/[^a-z0-9\s!?]/g, ' ')
+      .trim();
+
+    const intents = [];
+
+    // — Saudação
+    const greetWords = ['oi', 'ola', 'eai', 'e ai', 'fala', 'salve', 'bom dia', 'boa tarde', 'boa noite', 'buenas', 'hey', 'hello', 'hi', 'ae', 'beleza', 'firmeza', 'suave', 'tranquilo', 'fala ai', 'como vai', 'tudo bem', 'tudo certo'];
+    if (greetWords.some(w => t.includes(w))) intents.push('greeting');
+
+    // — Provocação / Trash talk
+    const provWords = ['ruim', 'fraco', 'lixo', 'noob', 'perdedor', 'cagao', 'cagou', 'medo', 'covarde', 'otario', 'trouxa', 'burro', 'idiota', 'bosta', 'merda', 'nada', 'nao sabe', 'aprende', 'volta pra', 'nao aguenta', 'frouxo', 'patético', 'ridiculo', 'mole', 'vai chorar', 'chora', 'chorao', 'chorando', 'arregou', 'arrega', 'corre', 'fugiu', 'pipoca', 'amarelou', 'medroso', 'perna bamba', 'perdeu mal'];
+    if (provWords.some(w => t.includes(w))) intents.push('provocation');
+
+    // — Elogio / Boa jogada
+    const praiseWords = ['boa', 'parabens', 'mandou bem', 'boa jogada', 'show', 'bonito', 'top', 'monstro', 'craque', 'mito', 'fera', 'brabo', 'braba', 'demais', 'daora', 'sensacional', 'incrivel', 'excelente', 'genial', 'lindo', 'jogou bem', 'bem jogado', 'boaa', 'nice', 'gostei', 'isso ai'];
+    if (praiseWords.some(w => t.includes(w))) intents.push('praise');
+
+    // — Truco / Aposta
+    const trucoWords = ['truco', 'seis', 'nove', 'doze', 'trucão', 'trucao', 'pede truco', 'mete truco', 'manda truco', 'vale', 'aposta', 'aumenta', 'retruca'];
+    if (trucoWords.some(w => t.includes(w))) intents.push('truco_talk');
+
+    // — Manilha / Carta específica
+    const cardWords = ['manilha', 'zap', 'copeta', 'espadilha', 'picafumo', 'ouros', 'tres', '3', 'carta', 'mao', 'vira'];
+    if (cardWords.some(w => t.includes(w))) intents.push('card_talk');
+
+    // — Placar / Score
+    const scoreWords = ['placar', 'pontos', 'ganhando', 'perdendo', 'empate', 'empatado', 'score', 'quanto', 'ponto', 'atras', 'na frente', 'vantagem'];
+    if (scoreWords.some(w => t.includes(w))) intents.push('score_talk');
+
+    // — Dúvida / Incerteza
+    const doubtWords = ['sera', 'nao sei', 'duvido', 'acho que', 'talvez', 'hmm', 'hm', 'eita', 'nossa', 'caramba', 'misericordia', 'jesus', 'meu deus', 'duvida', 'como', 'por que', 'porque'];
+    if (doubtWords.some(w => t.includes(w))) intents.push('doubt');
+
+    // — Pedido de ajuda / parceiro
+    const teamWords = ['parceiro', 'parceira', 'dupla', 'time', 'equipe', 'ajuda', 'confia', 'comigo', 'junto', 'nosso', 'nossa', 'bora', 'vamo', 'vamos'];
+    if (teamWords.some(w => t.includes(w))) intents.push('team_talk');
+
+    // — Despedida / Fim
+    const byeWords = ['tchau', 'flw', 'falou', 'ate mais', 'ate logo', 'fui', 'saindo', 'vou sair', 'bye', 'adeus', 'valeu', 'obrigado', 'obrigada', 'tmj', 'vlw'];
+    if (byeWords.some(w => t.includes(w))) intents.push('farewell');
+
+    // — Risada
+    const laughWords = ['haha', 'kkk', 'rsrs', 'lol', 'rir', 'huahua', 'hehe', 'ahahah', 'kkkkk', 'kkkk', 'rss', 'huehue', 'hue'];
+    if (laughWords.some(w => t.includes(w))) intents.push('laugh');
+
+    // — Reclamação / Frustração
+    const frustrWords = ['droga', 'pqp', 'puts', 'cacete', 'caralho', 'inferno', 'desgraca', 'azar', 'que azar', 'impossivel', 'injusto', 'absurdo', 'que carta', 'nao acredito', 'roubado', 'roubando', 'hack'];
+    if (frustrWords.some(w => t.includes(w))) intents.push('frustration');
+
+    // — Confiança / Arrogância
+    const confWords = ['facil', 'tranquilo', 'moleza', 'barbada', 'ja ganhei', 'ja era', 'sem chance', 'impossivel perder', 'to on', 'to forte', 'minha vez'];
+    if (confWords.some(w => t.includes(w))) intents.push('confidence');
+
+    // — Emoji / Reação pura
+    if (t.replace(/\s/g, '').length <= 3 && /[!?]/.test(text)) intents.push('reaction');
+
+    // fallback
+    if (intents.length === 0) intents.push('generic');
+
+    return intents;
+  }
+
+  /**
+   * Monta o contexto do jogo para os bots responderem de forma inteligente.
+   */
+  _getChatGameContext() {
+    if (!this.engine || !this.engine.players) return null;
+    const e = this.engine;
+    const myTeam = e.players[this.myPlayerIndex]?.team ?? 0;
+    const oppTeam = 1 - myTeam;
+
+    let botVasas = 0;
+    let playerVasas = 0;
+    for (const w of (e.roundWinners || [])) {
+      if (w === oppTeam) botVasas++;
+      else if (w === myTeam) playerVasas++;
+    }
+
+    return {
+      myScore: e.scores[myTeam] || 0,       // pontuação do jogador humano
+      botScore: e.scores[oppTeam] || 0,      // pontuação do time dos bots
+      botVasas,
+      playerVasas,
+      currentRound: e.currentRound || 0,
+      currentStake: e.currentStake || 1,
+      handOver: !!e.handOver,
+      gameOver: !!e.gameOver,
+      isMaoDeOnze: !!e.isMaoDeOnze,
+      isMaoDeFerro: !!e.isMaoDeFerro
+    };
+  }
+
+  /**
+   * Escolhe a resposta do bot com base no intent detectado e no estado do jogo.
+   * SEM FILTRO — linguagem autêntica de mesa de truco brasileiro.
+   * @param {string} intent - A intenção principal detectada
+   * @param {object} ctx - Contexto do jogo
+   * @param {number} botIndex - Índice do bot respondente
+   * @returns {string} Resposta do bot
+   */
+  _buildBotResponse(intent, ctx, botIndex) {
+    // Personalidades dos bots por índice (cicla entre 3 tipos)
+    const persona = (botIndex % 3); // 0=debochado, 1=zoeiro, 2=agressivo/boca suja
+
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    // Helpers de contexto
+    const botWinning = ctx && ctx.botScore > ctx.myScore;
+    const botLosing = ctx && ctx.botScore < ctx.myScore;
+    const bigLead = ctx && (ctx.botScore - ctx.myScore >= 5);
+    const bigDeficit = ctx && (ctx.myScore - ctx.botScore >= 5);
+    const closeGame = ctx && Math.abs(ctx.botScore - ctx.myScore) <= 2;
+    const botWonVasa = ctx && ctx.botVasas > ctx.playerVasas;
+    const highStake = ctx && ctx.currentStake >= 6;
+
+    switch (intent) {
+      case 'greeting':
+        return pick([
+          'E aí, cuzão! Bora jogar! 🃏',
+          'Salve! Preparado pra tomar no cu? 😏',
+          'Fala aí, otário! Vamos ver quem manda!',
+          'Opa! Chegou a vítima! 😂',
+          'Eai caralho! Senta aí e chora! 🔥',
+          'Beleza? Aqui na mesa é na porrada! 💪',
+          'Fala, porra! Bora meter a mão nesse baralho!',
+          'E aí! Trouxe lenço? Vai precisar! 😭',
+          'Oi, corno! Senta que lá vem pedrada! 🃏'
+        ]);
+
+      case 'provocation':
+        if (botWinning) {
+          return pick([
+            'Fala mais, arrombado! O placar tá a meu favor! 😂',
+            `Tá puto porque tô ganhando de ${ctx.botScore} a ${ctx.myScore}? Chupa! 🤣`,
+            'Xinga mais, desgraçado! Cada xingo meu jogo melhora! 😏',
+            'Tá bravinho? O placar tá aí pra quem quiser ver, otário! 📊',
+            'Vai se fuder! Difícil é virar esse placar! 😂',
+            'Cala a boca e joga, perdedor! Tá levando um sacode! 🤣',
+            'Fala merda não, tá apanhando que nem cachorro! 💀'
+          ]);
+        }
+        if (botLosing) {
+          return pick([
+            'Aproveita enquanto pode, filho da puta! A virada vem! 🔥',
+            'Tá com essa moral toda agora? Vai tomar no cu! Espera eu pegar uma manilha! 😈',
+            'Fala mais que eu guardo tudo pra enfiar na tua cara depois! 💪',
+            'Ri agora, desgraçado! Daqui a pouco é tu chorando! 😤',
+            'Cala essa boca! O jogo muda rápido, cuzão!',
+            'Tá se achendo, né? Vai tomar no cu! Espera a virada! 🔥',
+            'Fala, fala! Quando eu virar tu vai engolir cada palavra, arrombado!'
+          ]);
+        }
+        return pick([
+          'Opa, tá querendo guerra, filho da puta? Bora! 🔥',
+          'Guarda essa energia pra chorar depois, cuzão! 😏',
+          'Eita, o cara tá bravo! Vai tomar no cu! 😂',
+          'Continua latindo que eu continuo ganhando vasa, otário! 🃏',
+          'Quem fala demais joga de menos! Cala a boca e joga! 🤫',
+          'Vai se fuder! Aqui é mesa de truco, não creche! 😤',
+          'Fala merda não, porra! Joga essa carta logo!'
+        ]);
+
+      case 'praise':
+        if (botWonVasa) {
+          return pick([
+            'Claro, porra! Eu sou foda! 😎',
+            'Essa foi de cair o cu da bunda, né? Tem mais! 🎯',
+            'Valeu! Sou brabo mesmo, caralho! 💪',
+            'Obrigado! Agora abaixa a cabeça que lá vem mais! 😏'
+          ]);
+        }
+        return pick([
+          'Valeu, mas o jogo tá só começando, porra! 🃏',
+          'Obrigado! Agora para de puxar saco e joga! 😏',
+          'Boa! Mas não se empolga não que eu meto a porrada! 😄',
+          'Elogio aceito! Mas o Zap ainda não apareceu pra te fuder! 👀',
+          'Puxando saco não vai adiantar, otário! Joga! 😂'
+        ]);
+
+      case 'truco_talk':
+        if (highStake) {
+          return pick([
+            `Vale ${ctx.currentStake} já! Quer mais? Tô dentro, caralho! 🔥`,
+            'Nessa aposta alta, quem arrega é cuzão! 😤',
+            'Eita, tá ficando sério! Mas eu não corro não, porra! 💪',
+            'Alto demais? Pra mim tá perfeito! Bora pra cima, desgraça! 😈',
+            'Tá cagando de medo? Aceita logo, covarde! 🔥'
+          ]);
+        }
+        return pick([
+          'Truco? Pode pedir, caralho! Eu aceito ou meto mais! 😏',
+          'Quer truco? Cuidado com o que deseja, cuzão! 🃏',
+          'Falar de truco é fácil, quero ver pedir quando eu tiver o Zap na mão! 😂',
+          'Truco é pra quem tem culhão! Bora! 🔥',
+          'Pede logo essa merda! Tô esperando! 💪',
+          'Quer truco? Pede, porra! Tô louco pra aceitar e te fuder! 😈'
+        ]);
+
+      case 'card_talk':
+        return pick([
+          'Manilha? Tô guardando a minha pra enfiar no teu rabo! 😏',
+          'Cuidado, o Zap pode tá aqui comigo, otário! 🤫',
+          'Tô de olho na vira! Sei bem o que é manilha, diferente de tu! 👀',
+          'Carta boa todo mundo tem. Mas jogar que nem gente é outro papo! 🎯',
+          'Quem conta com manilha antes de ver, se fode! 😂',
+          'A vira tá aí, faz as contas... se tu souber matemática, burro! 🧮',
+          'Carta? Minha mão tá tão boa que dá vontade de te mostrar só pra te ver chorar! 🃏'
+        ]);
+
+      case 'score_talk':
+        if (ctx) {
+          if (botWinning && bigLead) {
+            return pick([
+              `Tô com ${ctx.botScore} a ${ctx.myScore}! Se fudeu, otário! 😏`,
+              'Olha esse placar! Tá feio pra caralho pro teu lado! 📊',
+              'Difícil virar agora! Vai chorar? 😂',
+              `${ctx.botScore} a ${ctx.myScore}! Tá levando um baile, cuzão! 💀`
+            ]);
+          }
+          if (botLosing && bigDeficit) {
+            return pick([
+              `Tá ${ctx.myScore} a ${ctx.botScore}, mas o jogo não acabou, porra! 💪`,
+              'Calma, já vi virada maior que essa! Vai tomar no cu! 🔥',
+              'Placar é só número, arrombado. Na mesa que se decide! 🃏',
+              'Tá ganhando por enquanto! Mas prepara o cu que a virada vem! 😤'
+            ]);
+          }
+          if (closeGame) {
+            return pick([
+              `Tá ${ctx.botScore} a ${ctx.myScore}! Jogo apertado pra caralho! 🔥`,
+              'Emparelhado assim? Cada vasa vale ouro, porra! 💎',
+              'Placar apertado! Agora o bicho vai pegar! 😤'
+            ]);
+          }
+        }
+        return pick([
+          'Placar? Relaxa, o que importa é quem chega nos 12 primeiro, otário! 🏆',
+          'Foco no jogo, porra! Placar a gente resolve na mesa! 🃏',
+          'Para de olhar placar e joga, caralho! 😂'
+        ]);
+
+      case 'doubt':
+        return pick([
+          'Duvidou? Então toma na cara essa carta! 😏',
+          'Tá na dúvida? Normal, contra mim é foda mesmo! 😂',
+          'A dúvida é o primeiro passo pra se fuder! 🃏',
+          'Fica na dúvida não! O resultado sai na mesa, cuzão! 💪',
+          'Tá pensativo? Enquanto tu pensa, eu como teu cu no truco! 🎯',
+          'Duvida? Duvida do caralho! Joga logo! 😤'
+        ]);
+
+      case 'team_talk':
+        // Bot verifica se o jogador é parceiro ou adversário
+        if (this.engine && this.engine.numPlayers >= 4) {
+          const botTeam = this.engine.players[botIndex]?.team;
+          const playerTeam = this.engine.players[this.myPlayerIndex]?.team;
+          if (botTeam === playerTeam) {
+            return pick([
+              'Confia no pai, caralho! Tenho carta boa aqui! 🤝',
+              'Parceiro, tô contigo! Bora fuder esses otários! 💪',
+              'Deixa comigo, porra! A vasa é nossa! 🔥',
+              'Confia! Quando eu pedir, aceita que é gol! 😏',
+              'Tô junto! Manda brasa que eu seguro essa merda atrás! 🛡️',
+              'Bora comer esses cuzão! Parceiro é parceiro! 💪'
+            ]);
+          }
+        }
+        return pick([
+          'Time? Aqui é cada um por si e o Zap fode todos! 😂',
+          'Bora ver quem é o time de verdade, otário! 🏆',
+          'Equipe boa é equipe que ganha vasa, não que fica de conversinha! 💪',
+          'Quer falar de time? Meu time vai comer o cu do teu! 🔥'
+        ]);
+
+      case 'farewell':
+        return pick([
+          'Já vai? Que isso, cagão! A gente tava só começando! 😄',
+          'Tá fugindo, é? Covarde do caralho! 🃏',
+          'Falou! Boa sorte na próxima... vai precisar, otário! 😂',
+          'Vai embora? Vai chorar no cantinho? 😏',
+          'Até mais! Foi bom te dar essa surra! 🏆',
+          'Vai tarde! Volta quando aprender a jogar, cuzão! 💀',
+          'Tchau, perdedor! Quando quiser apanhar de novo é só voltar! 😂'
+        ]);
+
+      case 'laugh':
+        if (botLosing) {
+          return pick([
+            'Ri, ri, arrombado... mas eu ainda tô na mesa! 😤',
+            'Essa risada vai virar choro! Espera só, filho da puta! 🔥',
+            'Kkkkk pra tu! Na próxima tu vai chorar, desgraçado! 😏',
+            'Ri agora! Quando eu virar tu vai enfiar essa risada no cu! 😤'
+          ]);
+        }
+        return pick([
+          'Kkkk tá rindo de quê, cuzão? 😂',
+          'Ri enquanto pode, arrombado! 🤣',
+          'Hahaha! Pelo menos tá se divertindo antes de perder! 😄',
+          'Kkkkk a mesa tá animada! Mas o jogo é sério, porra! 🃏',
+          'Kkkkk ri mesmo! Quando eu meter o Zap tu vai rir de nervoso! 😂'
+        ]);
+
+      case 'frustration':
+        if (botWinning) {
+          return pick([
+            'Eita, tá puto! É o placar, né? 😂',
+            'Calma, calma! Ainda dá tempo de perder mais, otário! 🤣',
+            'Azar o caralho! É que eu jogo bem demais, aceita! 😏',
+            'A culpa não é minha se o Zap me ama e te odeia! 🃏',
+            'Tá nervoso? Vai tomar no cu! Quem manda sou eu! 💀',
+            'Xingando a carta? Xinga tua mão merda, cuzão! 😂'
+          ]);
+        }
+        return pick([
+          'Epa, calma aí, porra! Jogo é jogo! 😄',
+          'Azar acontece! Mas para de chorar e joga, caralho! 💪',
+          'Sei como é... mas foco na mesa, cuzão! 🎯',
+          'Xingar a carta não muda ela, burro! 😂',
+          'Para de reclamar e joga essa merda, porra! 😤',
+          'Tá reclamando? Então levanta da mesa, covarde! 🔥'
+        ]);
+
+      case 'confidence':
+        if (botWinning) {
+          return pick([
+            'Fácil? Fácil o caralho! Olha o placar, otário! 😂',
+            'Tranquilo pra quem? Tá tomando um sacode! 📊',
+            'Essa confiança toda vai te custar caro, cuzão! 😈',
+            'Fácil? Tu tá perdendo, burro do caralho! 💀'
+          ]);
+        }
+        if (botLosing) {
+          return pick([
+            'Tá confiante agora, né? Vai tomar no cu! Espera a virada! 🔥',
+            'Fácil é quando acaba, arrombado! Ainda não acabou! 💪',
+            'Excesso de confiança é meu combustível, otário! 😏',
+            'Fica aí se achendo! Quando eu virar tu vai cagar de medo! 😈'
+          ]);
+        }
+        return pick([
+          'Confiança é bom, excesso é burrice! 😏',
+          'Fácil? Então pede truco pra ver se é fácil mesmo, cuzão! 🔥',
+          'Todo mundo é valente antes do Zap aparecer pra comer teu cu! 🃏',
+          'Tá se achendo o fodão? Joga logo, caralho! 😤'
+        ]);
+
+      case 'reaction':
+        return pick([
+          '👀', '🤔', '😏', '🖕', '💪', '🔥', '😂', '💀'
+        ]);
+
+      case 'generic':
+      default: {
+        // Resposta contextual genérica baseada no estado do jogo
+        if (ctx && ctx.isMaoDeOnze) {
+          return pick([
+            'Mão de Onze! Agora é tudo ou nada, porra! 🔥',
+            'Onze pontos! O bicho vai pegar, caralho! 😤',
+            'Mão de onze! Hora de meter a porrada! 💪',
+            'Onze! Quem cagar de medo perde! 🔥'
+          ]);
+        }
+        if (ctx && ctx.isMaoDeFerro) {
+          return pick([
+            'Mão de Ferro! Às cegas e na coragem, porra! 🔥',
+            '11 a 11! Não dá pra ver carta! É na fé e no cu dos outro! 😤',
+            'Mão de Ferro! Quem se foder, se fudeu! 💀'
+          ]);
+        }
+        if (ctx && highStake) {
+          return pick([
+            `Valendo ${ctx.currentStake}! Agora é sério, caralho! 🔥`,
+            'Com essa aposta alta, cala a boca e joga! 🤫',
+            'Eita, o negócio tá ficando caro! Cagou? 💰',
+            `${ctx.currentStake} pontos na mesa! Quem arrega é cuzão! 🔥`
+          ]);
+        }
+        // Frases de contexto genérico
+        const genericPool = [
+          'Cala a boca e joga! 🃏',
+          'Vamos ver quem manda aqui, caralho! 💪',
+          'Joga aí, tô esperando, porra! 😏',
+          'Para de enrolar e joga essa merda! 🎯',
+          'A mesa tá quente hoje! 🔥',
+          'Conversa fiada do caralho! Quero ver na carta! 😂',
+          'Tô te estudando, cuzão... cuidado! 👀',
+          'Mais uma vasa e tu vai chorar! 🃏',
+          'Na mesa que se resolve, otário! Bora jogar! 💪',
+          'Hmm, interessante... mas joga logo, porra! 🤔',
+          'Menos papo e mais carta, caralho! 😤',
+          'Fala, fala! Na hora de jogar tu caga! 💀'
+        ];
+
+        if (persona === 0) {
+          genericPool.push(
+            'Relaxa, cuzão... jogo é jogo! 😌',
+            'Cada um no seu tempo, mas tu tá lento demais, porra! ⏳'
+          );
+        } else if (persona === 1) {
+          genericPool.push(
+            'Kkkk aham, sei! 😂',
+            'Boa! Agora cala a boca e joga! 🃏',
+            'Eita caralho! 😅'
+          );
+        } else {
+          genericPool.push(
+            'Menos conversa, mais carta, filho da puta! 😤',
+            'Na mesa, guerreiro! Ou tu é covarde? 🔥',
+            'Vai jogar ou vai ficar aí batendo punheta? 💀'
+          );
+        }
+
+        return pick(genericPool);
+      }
+    }
+  }
+
+  /**
+   * Bot responde ao chat do jogador de forma inteligente.
+   * Analisa a mensagem, detecta a intenção e responde com contexto do jogo.
+   */
+  _botChatReaction(playerMessage) {
     if (!this.engine || !this.bots) return;
-    const botResponses = [
-      'Haha, tá bom! 😂', 'Cala boca e joga! 🤫', 'Foco na partida! 🃏',
-      'Boa! 👏', 'Tô de olho em você... 👀', 'Vai querer chorar depois! 🔥',
-      'Essa vasa já é minha! 👊', 'Cuidado com a manilha! ⚠️'
-    ];
-    // Escolhe um bot aleatório com 45% de chance
-    if (Math.random() > 0.45) return;
+
     const botIndices = Object.keys(this.bots).filter(i => this.bots[i]);
     if (botIndices.length === 0) return;
-    const idx = parseInt(botIndices[Math.floor(Math.random() * botIndices.length)]);
-    const botName = this.engine.players[idx] ? this.engine.players[idx].name : `Bot ${idx}`;
-    const text = botResponses[Math.floor(Math.random() * botResponses.length)];
+
+    // Detecta a intenção da mensagem
+    const intents = this._detectChatIntent(playerMessage || '');
+    const primaryIntent = intents[0] || 'generic';
+
+    // Contexto do jogo
+    const ctx = this._getChatGameContext();
+
+    // Decide quais bots respondem
+    // Saudações e provocações: alta chance de resposta (80%)
+    // Genérico: chance moderada (55%)
+    // Reação/emoji: baixa chance (30%)
+    let responseChance = 0.55;
+    if (['greeting', 'provocation', 'farewell'].includes(primaryIntent)) responseChance = 0.80;
+    else if (['praise', 'truco_talk', 'frustration', 'confidence'].includes(primaryIntent)) responseChance = 0.70;
+    else if (['reaction'].includes(primaryIntent)) responseChance = 0.30;
+
+    // Primeiro bot responde com a chance principal
+    if (Math.random() > responseChance) return;
+
+    const respondingIdx = parseInt(botIndices[Math.floor(Math.random() * botIndices.length)]);
+    const botName = this.engine.players[respondingIdx] ? this.engine.players[respondingIdx].name : `Bot ${respondingIdx}`;
+    const response = this._buildBotResponse(primaryIntent, ctx, respondingIdx);
+
+    // Delay natural de digitação (600ms a 1800ms, mais longo para respostas maiores)
+    const typingDelay = 600 + Math.min(response.length * 15, 1200);
+
     setTimeout(() => {
-      this.addChatMessage('other', botName, text, idx);
-      this.sendSpeechBubble(idx, text);
+      this.addChatMessage('other', botName, response, respondingIdx);
+      this.sendSpeechBubble(respondingIdx, response);
       window.TrucoAudio?.playNotification?.();
-    }, 700 + Math.random() * 1000);
+    }, typingDelay);
+
+    // Chance de segundo bot responder (20%) — cria dinamismo na conversa
+    if (botIndices.length >= 2 && Math.random() < 0.20) {
+      const remainingBots = botIndices.filter(i => parseInt(i) !== respondingIdx);
+      if (remainingBots.length > 0) {
+        const secondIdx = parseInt(remainingBots[Math.floor(Math.random() * remainingBots.length)]);
+        const secondName = this.engine.players[secondIdx] ? this.engine.players[secondIdx].name : `Bot ${secondIdx}`;
+
+        // Segundo bot usa intent secundário ou genérico
+        const secondIntent = intents[1] || 'generic';
+        const secondResponse = this._buildBotResponse(secondIntent, ctx, secondIdx);
+
+        setTimeout(() => {
+          this.addChatMessage('other', secondName, secondResponse, secondIdx);
+          this.sendSpeechBubble(secondIdx, secondResponse);
+        }, typingDelay + 800 + Math.random() * 1200);
+      }
+    }
   }
 
   /** Bot manda mensagem de chat num evento de jogo (truco, vasa, etc) */
