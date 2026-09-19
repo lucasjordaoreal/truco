@@ -21,6 +21,11 @@ class TrucoApp {
     this._turnTimerRemaining = 30;
     this._timerCircumference = 175.9; // 2*pi*28
 
+    // Flag para evitar flash de cartas: CARD_PLAYED_EVENT já renderizou a mesa
+    this._skipTableRender = false;
+    this.isFadingTrickCards = false;
+    this.trickFadeTimer = null;
+
     this.initElements();
     this.bindEvents();
     this.checkUrlInvite();
@@ -73,28 +78,28 @@ class TrucoApp {
     this.quickChatList = null;
 
     // Timer overlay
-    this.turnOverlay   = document.getElementById('turnOverlay');
+    this.turnOverlay = document.getElementById('turnOverlay');
     this.turnCountdown = document.getElementById('turnCountdown');
-    this.timerArc      = document.getElementById('timerArc');
+    this.timerArc = document.getElementById('timerArc');
 
     // Chat panel
-    this.chatPanel        = document.getElementById('chatPanel');
-    this.chatMessages     = document.getElementById('chatMessages');
-    this.chatInput        = document.getElementById('chatInput');
-    this.chatUnreadBadge  = document.getElementById('chatUnreadBadge');
-    this._chatOpen        = false;
-    this._chatUnread      = 0;
+    this.chatPanel = document.getElementById('chatPanel');
+    this.chatMessages = document.getElementById('chatMessages');
+    this.chatInput = document.getElementById('chatInput');
+    this.chatUnreadBadge = document.getElementById('chatUnreadBadge');
+    this._chatOpen = false;
+    this._chatUnread = 0;
 
     // Configuração solo
     this._soloNumPlayers = 4;
 
     // Fim de jogo e Revanche
-    this.gameOverModal   = document.getElementById('gameOverModal');
-    this.btnPlayAgain    = document.getElementById('btnPlayAgain');
-    this.btnReturnLobby  = document.getElementById('btnReturnLobby');
-    this.seriesBadge0    = document.getElementById('seriesBadge0');
-    this.seriesBadge1    = document.getElementById('seriesBadge1');
-    this.seriesWins      = [0, 0]; // [Vitórias Time 0, Vitórias Time 1]
+    this.gameOverModal = document.getElementById('gameOverModal');
+    this.btnPlayAgain = document.getElementById('btnPlayAgain');
+    this.btnReturnLobby = document.getElementById('btnReturnLobby');
+    this.seriesBadge0 = document.getElementById('seriesBadge0');
+    this.seriesBadge1 = document.getElementById('seriesBadge1');
+    this.seriesWins = [0, 0]; // [Vitórias Time 0, Vitórias Time 1]
   }
 
   bindEvents() {
@@ -140,6 +145,10 @@ class TrucoApp {
 
     document.getElementById('btnMaoDeOnzeRun')?.addEventListener('click', () => {
       this.handleMaoDeOnzeDecision(false);
+    });
+
+    document.getElementById('btnM11Peek')?.addEventListener('click', () => {
+      this.toggleMaoDeOnzePeek();
     });
 
     // === CHAT PANEL ===
@@ -225,7 +234,7 @@ class TrucoApp {
     // Áudio toggle
     document.getElementById('btnToggleAudio')?.addEventListener('click', (e) => {
       window.TrucoAudio.muted = !window.TrucoAudio.muted;
-      e.currentTarget.textContent = window.TrucoAudio.muted ? '🔇 Mudo' : '🔊 Som';
+      e.currentTarget.textContent = window.TrucoAudio.muted ? 'Mudo' : 'Som';
       this.showToast(window.TrucoAudio.muted ? 'Sons desativados' : 'Sons ativados');
     });
   }
@@ -236,7 +245,14 @@ class TrucoApp {
   }
 
   closeModals() {
-    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      m.classList.remove('active');
+      m.classList.remove('is-peeking');
+    });
+    const peekText = document.getElementById('m11PeekText');
+    const peekIcon = document.getElementById('m11PeekIcon');
+    if (peekText) peekText.textContent = 'Espiar Mesa';
+    if (peekIcon) peekIcon.textContent = 'Espiar';
   }
 
   checkUrlInvite() {
@@ -297,7 +313,7 @@ class TrucoApp {
     this.updateSeriesHUD();
     this.roomConfig.fillBots = fillBots;
 
-    this.showToast('Iniciando sala P2P...', 'info');
+    this.showToast('Iniciando sala...', 'info');
 
     this.network = new TrucoNetwork({
       onError: (err) => {
@@ -351,6 +367,40 @@ class TrucoApp {
       this.showToast('Informe o código da sala!', 'warning');
       return;
     }
+
+    // ── MODO DEBUG ──────────────────────────────────────────────────────────
+    if (roomId === 'DEBUGGER') {
+      this.closeModals();
+      this.isSinglePlayer = true;
+      this.myPlayerIndex = 0;
+      this.roomConfig.id = 'DEBUG';
+      this.roomConfig.numPlayers = 4;
+      this.seriesWins = [0, 0];
+      this.updateSeriesHUD();
+
+      this.roomBadge.style.display = 'flex';
+      this.roomBadgeText.textContent = 'DEBUG';
+
+      const debugPlayers = [
+        { id: 'me', name: playerName || 'Dev', isBot: false },
+        { id: 'bot_1', name: 'Bot Alpha', isBot: true },
+        { id: 'bot_2', name: 'Bot Beta', isBot: true },
+        { id: 'bot_3', name: 'Bot Gamma', isBot: true },
+      ];
+
+      this.setupEngineAndBots(4, debugPlayers, false);
+
+      // Forçar placar 11×0 → Mão de Onze no próximo startNewHand
+      this.engine.scores = [11, 0];
+
+      this.addChatMessage('system', '', 'Modo DEBUG ativo — placar 11×0, Mão de Onze garantida');
+      this.startRoundHand({ animate: true, isFirstRound: true });
+
+      this.triggerEventBanner('DEBUG MODE', 'Placar 11×0 — Mão de Onze ativa!');
+      this.showToast('Modo Debug ativado!', 'success');
+      return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     this.showToast('Conectando à mesa...', 'info');
 
@@ -422,8 +472,8 @@ class TrucoApp {
       const cardCount = player.hand ? player.hand.length : 3;
 
       seat.innerHTML = `
-        <div class="chat-shout-bubble" id="speech-${i}" style="display: none;"></div>
         <div class="seat-avatar-wrap">
+          <div class="chat-shout-bubble" id="speech-${i}" style="display: none;"></div>
           <div class="seat-avatar">${avatarLetter}</div>
           <div class="dealer-chip" id="dealerBadge-${i}" style="display: none;">D</div>
         </div>
@@ -502,6 +552,7 @@ class TrucoApp {
       this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
     }
     if (this.viraContainer) this.viraContainer.innerHTML = '';
+    this.updateTopRightManilhasHUD(null);
     if (this.myHandElement) this.myHandElement.innerHTML = '';
     document.querySelectorAll('.seat-hand-mini').forEach(el => el.innerHTML = '');
 
@@ -565,6 +616,7 @@ class TrucoApp {
     document.querySelectorAll('.seat-hand-mini').forEach(el => el.innerHTML = '');
     if (this.myHandElement) this.myHandElement.innerHTML = '';
     if (this.viraContainer) this.viraContainer.innerHTML = '';
+    this.updateTopRightManilhasHUD(null);
 
     // Monta a ordem de entrega: 3 voltas na mesa (1 carta para cada jogador por volta) + vira
     const dealQueue = [];
@@ -693,6 +745,12 @@ class TrucoApp {
     this.stopTurnTimer();
     this.isDealing = true;
 
+    if (this.trickFadeTimer) {
+      clearTimeout(this.trickFadeTimer);
+      this.trickFadeTimer = null;
+    }
+    this.isFadingTrickCards = false;
+
     // Limpa a mesa de descarte mantendo o label
     this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
     this.coverNextCard = false;
@@ -733,6 +791,7 @@ class TrucoApp {
 
     this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
     this.viraContainer.innerHTML = '';
+    this.updateTopRightManilhasHUD(null);
     this.myHandElement.innerHTML = '';
     this.coverNextCard = false;
     this.btnCoverToggle.classList.remove('active');
@@ -775,6 +834,7 @@ class TrucoApp {
       const isMyTeam = (this.engine.players[this.myPlayerIndex].team === handState.maoDeOnzeTeam);
       this.triggerEventBanner('MÃO DE ONZE!', isMyTeam ? 'Sua equipe tem 11 pontos!' : 'Adversários na Mão de Onze!');
       if (isMyTeam) {
+        this.renderMaoDeOnzeModal();
         this.openModal(this.maoDeOnzeModal);
       } else {
         this.checkBotMaoDeOnzeDecision(handState.maoDeOnzeTeam);
@@ -786,12 +846,17 @@ class TrucoApp {
 
   renderViraCard() {
     this.viraContainer.innerHTML = '';
-    const vira = this.engine.vira;
-    if (!vira) return;
+    const vira = this.engine ? this.engine.vira : null;
+    if (!vira) {
+      this.updateTopRightManilhasHUD(null);
+      return;
+    }
 
     const manilhaRank = this.engine.manilhaRank;
+    this.updateTopRightManilhasHUD(manilhaRank);
+
     const cardEl = this.createCardElement(vira);
-    
+
     const mat = document.createElement('div');
     mat.className = 'vira-mat';
     mat.innerHTML = `
@@ -809,6 +874,49 @@ class TrucoApp {
     mat.appendChild(legend);
 
     this.viraContainer.appendChild(mat);
+  }
+
+  updateTopRightManilhasHUD(manilhaRank = null) {
+    const widget = document.getElementById('hudManilhasWidget');
+    if (!widget) return;
+
+    if (!manilhaRank && this.engine) {
+      manilhaRank = this.engine.manilhaRank;
+    }
+
+    const cardZap = document.getElementById('hudCardZap');
+    const cardCopeta = document.getElementById('hudCardCopeta');
+    const cardEspadilha = document.getElementById('hudCardEspadilha');
+    const cardOuros = document.getElementById('hudCardOuros');
+
+    if (!manilhaRank) {
+      widget.classList.add('is-empty');
+      const headerRankEl = document.getElementById('hudManilhaHeaderRank');
+      if (headerRankEl) headerRankEl.textContent = '—';
+      const rankEls = widget.querySelectorAll('.m-rank');
+      rankEls.forEach(el => { el.textContent = '—'; });
+
+      if (cardZap) cardZap.title = '1ª maior: Zap — Paus (♣)';
+      if (cardCopeta) cardCopeta.title = '2ª maior: Copeta — Copas (♥)';
+      if (cardEspadilha) cardEspadilha.title = '3ª maior: Espadilha — Espadas (♠)';
+      if (cardOuros) cardOuros.title = '4ª maior: Pica-fumo / Ouros — Ouros (♦)';
+      return;
+    }
+
+    widget.classList.remove('is-empty');
+
+    const headerRankEl = document.getElementById('hudManilhaHeaderRank');
+    if (headerRankEl) headerRankEl.textContent = manilhaRank;
+
+    const rankEls = widget.querySelectorAll('.m-rank');
+    rankEls.forEach(el => {
+      el.textContent = manilhaRank;
+    });
+
+    if (cardZap) cardZap.title = `1ª maior: ♣ ${manilhaRank} — Paus (Zap)`;
+    if (cardCopeta) cardCopeta.title = `2ª maior: ♥ ${manilhaRank} — Copeta (Copas)`;
+    if (cardEspadilha) cardEspadilha.title = `3ª maior: ♠ ${manilhaRank} — Espadilha (Espadas)`;
+    if (cardOuros) cardOuros.title = `4ª maior: ♦ ${manilhaRank} — Pica-fumo / Ouros`;
   }
 
   renderMyHand() {
@@ -1041,6 +1149,43 @@ class TrucoApp {
     });
   }
 
+  animateTrickCardsFadeOut(callback) {
+    if (!this.trickDropzone) {
+      callback?.();
+      return;
+    }
+
+    const cards = this.trickDropzone.querySelectorAll('.played-trick-card');
+    if (!cards || cards.length === 0) {
+      this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
+      callback?.();
+      return;
+    }
+
+    this.isFadingTrickCards = true;
+
+    cards.forEach(cardEl => {
+      cardEl.classList.add('trick-fade-out');
+      const currentTransform = cardEl.style.transform || '';
+      if (!currentTransform.includes('scale(')) {
+        cardEl.style.transform = `${currentTransform} scale(0.88) translateY(-8px)`;
+      }
+    });
+
+    if (this.trickFadeTimer) {
+      clearTimeout(this.trickFadeTimer);
+    }
+
+    this.trickFadeTimer = setTimeout(() => {
+      if (this.trickDropzone) {
+        this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
+      }
+      this.isFadingTrickCards = false;
+      this.trickFadeTimer = null;
+      callback?.();
+    }, 450);
+  }
+
   handleVasaComplete(vasaResult) {
     this.updateScoreboard();
 
@@ -1054,14 +1199,19 @@ class TrucoApp {
         this.handleHandFinished(vasaResult.handSummary);
       }, 1400);
     } else {
-      setTimeout(() => {
-        this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
-        this.updateDealerAndTurnHighlights();
-        this.updateActionButtons();
-        if (this.isSinglePlayer || (this.network && this.network.isHost)) {
-          this.checkNextTurnAction();
-        }
-      }, 1500);
+      if (this.trickFadeTimer) {
+        clearTimeout(this.trickFadeTimer);
+        this.trickFadeTimer = null;
+      }
+      this.trickFadeTimer = setTimeout(() => {
+        this.animateTrickCardsFadeOut(() => {
+          this.updateDealerAndTurnHighlights();
+          this.updateActionButtons();
+          if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+            this.checkNextTurnAction();
+          }
+        });
+      }, 1000);
     }
   }
 
@@ -1123,6 +1273,12 @@ class TrucoApp {
     if (this.isDealing) return;
     if (!this.engine) return;
 
+    // Só permite pedir truco na vez do próprio jogador
+    if (this.engine.currentTurnIndex !== this.myPlayerIndex) {
+      this.showToast('Você só pode pedir Truco na sua vez!', 'warning');
+      return;
+    }
+
     if (this.isSinglePlayer || (this.network && this.network.isHost)) {
       const res = this.engine.requestBet(this.myPlayerIndex);
       if (res.error) {
@@ -1135,7 +1291,7 @@ class TrucoApp {
       setTimeout(() => this.table.classList.remove('thump-active'), 400);
 
       const label = res.pendingBet.targetLabel;
-      this.sendSpeechBubble(this.myPlayerIndex, `${label.toUpperCase()}! 🔥`);
+      this.sendSpeechBubble(this.myPlayerIndex, `${label.toUpperCase()}!`);
       this.triggerEventBanner(`${label.toUpperCase()}!`, `${this.engine.players[this.myPlayerIndex].name} pediu ${label}!`);
       this.updateActionButtons();
 
@@ -1203,12 +1359,12 @@ class TrucoApp {
     const respondingPlayerName = this.engine.players[playerIndex] ? this.engine.players[playerIndex].name : 'Jogador';
 
     if (action === 'refuse') {
-      this.sendSpeechBubble(playerIndex, 'Corro! 🏃');
+      this.sendSpeechBubble(playerIndex, 'Corro!');
       this.triggerEventBanner('FUGIU!', `${respondingPlayerName} correu do pedido de aposta.`);
       this.handleHandFinished({ winningTeam: res.winningTeam });
     } else if (action === 'accept') {
       window.TrucoAudio.playTableThump();
-      this.sendSpeechBubble(playerIndex, 'Cai pra dentro! 💪');
+      this.sendSpeechBubble(playerIndex, 'Cai pra dentro!');
       this.triggerEventBanner('ACEITO!', `Mão agora vale ${res.newStake} pontos!`);
       this.updateScoreboard();
       this.updateActionButtons();
@@ -1219,7 +1375,7 @@ class TrucoApp {
       setTimeout(() => this.table.classList.remove('thump-active'), 400);
 
       const label = res.pendingBet.targetLabel;
-      this.sendSpeechBubble(playerIndex, `${label.toUpperCase()}! 🔥`);
+      this.sendSpeechBubble(playerIndex, `${label.toUpperCase()}!`);
       this.triggerEventBanner(`${label.toUpperCase()}!`, `${respondingPlayerName} aumentou para ${label}!`);
       this.updateScoreboard();
       this.updateActionButtons();
@@ -1240,7 +1396,116 @@ class TrucoApp {
     }
   }
 
+  toggleMaoDeOnzePeek() {
+    if (!this.maoDeOnzeModal) return;
+    const isPeeking = this.maoDeOnzeModal.classList.toggle('is-peeking');
+    const peekText = document.getElementById('m11PeekText');
+    const peekIcon = document.getElementById('m11PeekIcon');
+    if (peekText) peekText.textContent = isPeeking ? 'Expandir' : 'Espiar Mesa';
+    if (peekIcon) peekIcon.textContent = isPeeking ? 'Expandir' : 'Espiar';
+  }
+
+  renderMaoDeOnzeModal() {
+    if (!this.maoDeOnzeModal || !this.engine) return;
+
+    // Reset modo espiar
+    this.maoDeOnzeModal.classList.remove('is-peeking');
+    const peekText = document.getElementById('m11PeekText');
+    const peekIcon = document.getElementById('m11PeekIcon');
+    if (peekText) peekText.textContent = 'Espiar Mesa';
+    if (peekIcon) peekIcon.textContent = 'Espiar';
+
+    const vira = this.engine.vira;
+    const manilhaRank = this.engine.manilhaRank;
+
+    // Renderiza a carta do Vira
+    const viraSlot = document.getElementById('m11ViraCardSlot');
+    if (viraSlot && vira) {
+      viraSlot.innerHTML = '';
+      const viraCardEl = this.createCardElement(vira);
+      viraSlot.appendChild(viraCardEl);
+    }
+
+    // Atualiza dados informativos da Manilha
+    const manilhaRankEl = document.getElementById('m11ManilhaRank');
+    const manilhaStrongEl = document.getElementById('m11ManilhaStrong');
+
+    if (manilhaRankEl) manilhaRankEl.textContent = manilhaRank || '—';
+    if (manilhaStrongEl) manilhaStrongEl.textContent = manilhaRank || '—';
+
+    // Renderiza as cartas da mão do jogador
+    const myPlayer = (this.engine.players && this.engine.players[this.myPlayerIndex]) ? this.engine.players[this.myPlayerIndex] : null;
+    const handCardsContainer = document.getElementById('m11HandCards');
+    const handSummaryEl = document.getElementById('m11HandSummary');
+
+    if (handCardsContainer && myPlayer && myPlayer.hand) {
+      handCardsContainer.innerHTML = '';
+      let manilhaCount = 0;
+
+      myPlayer.hand.forEach(card => {
+        const cardEl = this.createCardElement(card);
+        const info = TrucoDeck.getManilhaInfo(card, vira);
+        if (info) manilhaCount++;
+        handCardsContainer.appendChild(cardEl);
+      });
+
+      if (handSummaryEl) {
+        if (manilhaCount > 0) {
+          handSummaryEl.textContent = manilhaCount === 1 ? '1 Manilha na mão!' : `${manilhaCount} Manilhas na mão!`;
+          handSummaryEl.className = 'm11-badge-status has-manilha';
+        } else {
+          handSummaryEl.textContent = 'Nenhuma manilha';
+          handSummaryEl.className = 'm11-badge-status no-manilha';
+        }
+      }
+    }
+
+    // Se jogo em duplas (4 jogadores), exibe as cartas do parceiro de equipe
+    const partnerSection = document.getElementById('m11PartnerSection');
+    if (partnerSection) {
+      if (this.engine.numPlayers === 4) {
+        const partnerIdx = (this.myPlayerIndex + 2) % 4;
+        const partner = this.engine.players[partnerIdx];
+        if (partner && partner.hand && partner.hand.length > 0) {
+          partnerSection.style.display = 'block';
+          const partnerCardsEl = document.getElementById('m11PartnerCards');
+          const partnerLabelEl = document.getElementById('m11PartnerLabel');
+          const partnerSummaryEl = document.getElementById('m11PartnerSummary');
+
+          if (partnerLabelEl) partnerLabelEl.textContent = `CARTAS DO PARCEIRO (${partner.name}):`;
+          if (partnerCardsEl) {
+            partnerCardsEl.innerHTML = '';
+            let pManilhas = 0;
+            partner.hand.forEach(card => {
+              const cardEl = this.createCardElement(card);
+              const info = TrucoDeck.getManilhaInfo(card, vira);
+              if (info) pManilhas++;
+              partnerCardsEl.appendChild(cardEl);
+            });
+
+            if (partnerSummaryEl) {
+              if (pManilhas > 0) {
+                partnerSummaryEl.textContent = pManilhas === 1 ? '1 Manilha' : `${pManilhas} Manilhas`;
+                partnerSummaryEl.className = 'm11-badge-status has-manilha';
+              } else {
+                partnerSummaryEl.textContent = 'Sem manilhas';
+                partnerSummaryEl.className = 'm11-badge-status no-manilha';
+              }
+            }
+          }
+        } else {
+          partnerSection.style.display = 'none';
+        }
+      } else {
+        partnerSection.style.display = 'none';
+      }
+    }
+  }
+
   handleMaoDeOnzeDecision(play, playerIndex = this.myPlayerIndex) {
+    if (this.maoDeOnzeModal) {
+      this.maoDeOnzeModal.classList.remove('is-peeking');
+    }
     this.closeModals();
     if (!this.engine) return;
 
@@ -1252,10 +1517,10 @@ class TrucoApp {
       }
 
       if (!play) {
-        this.sendSpeechBubble(playerIndex, 'Vamos fugir! 🏃');
+        this.sendSpeechBubble(playerIndex, 'Vamos fugir!');
         this.handleHandFinished({ winningTeam: res.winningTeam });
       } else {
-        this.sendSpeechBubble(playerIndex, 'Vamos pro jogo! ⚔️');
+        this.sendSpeechBubble(playerIndex, 'Vamos pro jogo!');
         this.triggerEventBanner('MÃO DE ONZE ACEITA', 'A rodada está valendo 3 pontos!');
         this.updateScoreboard();
         this.checkNextTurnAction();
@@ -1572,8 +1837,15 @@ class TrucoApp {
       }
     } else if (data.type === 'CARD_PLAYED_EVENT') {
       window.TrucoAudio.playCardSlide();
-      this.renderCardOnTable(data.played);
 
+      // Renderiza a carta na mesa. Se foi a minha própria carta (já joguei e
+      // renderizei localmente via handlePlayCard), não repete para não duplicar.
+      // Como cliente nunca executa playCard localmente, sempre renderiza.
+      this.renderCardOnTable(data.played);
+      // Sinaliza para o STATE_SYNC seguinte não recriar as cartas da mesa
+      this._skipTableRender = true;
+
+      // Atualiza a mão: remove a carta jogada do array local
       if (data.played.playerIndex === this.myPlayerIndex) {
         const myHand = this.engine.players[this.myPlayerIndex].hand;
         const cardIdx = myHand.findIndex(c => c.id === data.played.card.id);
@@ -1584,7 +1856,24 @@ class TrucoApp {
           otherPlayer.hand.pop();
         }
       }
-      this.renderMyHand();
+
+      // Atualiza apenas os mini-cards dos assentos (não recriar as cartas do próprio jogador)
+      for (let i = 0; i < this.engine.numPlayers; i++) {
+        if (i !== this.myPlayerIndex) {
+          const backContainer = document.getElementById(`seatBacks-${i}`);
+          if (backContainer) {
+            const count = this.engine.players[i].hand ? this.engine.players[i].hand.length : 0;
+            backContainer.innerHTML = '';
+            for (let c = 0; c < count; c++) {
+              const mini = document.createElement('div');
+              mini.className = 'mini-card';
+              backContainer.appendChild(mini);
+            }
+          }
+        }
+      }
+      this.updateDealerAndTurnHighlights();
+      this.updateActionButtons();
 
       if (data.vasaComplete) {
         this.handleVasaComplete(data.vasaResult);
@@ -1592,6 +1881,10 @@ class TrucoApp {
         this.engine.currentTurnIndex = data.nextTurnIndex;
         this.updateDealerAndTurnHighlights();
         this.updateActionButtons();
+        // Dispara timer se agora for a vez do cliente
+        if (data.nextTurnIndex === this.myPlayerIndex && !this.engine.pendingBet && !this.engine.handOver) {
+          this.startTurnTimer();
+        }
       }
     } else if (data.type === 'CLIENT_REQUEST_BET') {
       if (!this.network || !this.network.isHost || !this.engine) return;
@@ -1609,7 +1902,7 @@ class TrucoApp {
       setTimeout(() => this.table.classList.remove('thump-active'), 400);
 
       const label = res.pendingBet.targetLabel;
-      this.sendSpeechBubble(fromIdx, `${label.toUpperCase()}! 🔥`);
+      this.sendSpeechBubble(fromIdx, `${label.toUpperCase()}!`);
       this.triggerEventBanner(`${label.toUpperCase()}!`, `${this.engine.players[fromIdx].name} pediu ${label}!`);
       this.updateActionButtons();
       this.showBetResponseUI(res.pendingBet);
@@ -1628,7 +1921,7 @@ class TrucoApp {
 
       const pName = this.engine.players[data.playerIndex] ? this.engine.players[data.playerIndex].name : 'Jogador';
       const label = data.pendingBet.targetLabel;
-      this.sendSpeechBubble(data.playerIndex, `${label.toUpperCase()}! 🔥`);
+      this.sendSpeechBubble(data.playerIndex, `${label.toUpperCase()}!`);
       this.triggerEventBanner(`${label.toUpperCase()}!`, `${pName} pediu ${label}!`);
       this.engine.pendingBet = data.pendingBet;
       this.updateActionButtons();
@@ -1643,12 +1936,12 @@ class TrucoApp {
       const pName = this.engine.players[data.playerIndex] ? this.engine.players[data.playerIndex].name : 'Jogador';
 
       if (data.action === 'refuse') {
-        this.sendSpeechBubble(data.playerIndex, 'Corro! 🏃');
+        this.sendSpeechBubble(data.playerIndex, 'Corro!');
         this.triggerEventBanner('FUGIU!', `${pName} correu do pedido de aposta.`);
         this.handleHandFinished({ winningTeam: data.winningTeam });
       } else if (data.action === 'accept') {
         window.TrucoAudio.playTableThump();
-        this.sendSpeechBubble(data.playerIndex, 'Cai pra dentro! 💪');
+        this.sendSpeechBubble(data.playerIndex, 'Cai pra dentro!');
         this.triggerEventBanner('ACEITO!', `Mão agora vale ${data.newStake} pontos!`);
         this.engine.currentStake = data.newStake;
         this.engine.pendingBet = null;
@@ -1660,7 +1953,7 @@ class TrucoApp {
         setTimeout(() => this.table.classList.remove('thump-active'), 400);
 
         const label = data.pendingBet.targetLabel;
-        this.sendSpeechBubble(data.playerIndex, `${label.toUpperCase()}! 🔥`);
+        this.sendSpeechBubble(data.playerIndex, `${label.toUpperCase()}!`);
         this.triggerEventBanner(`${label.toUpperCase()}!`, `${pName} aumentou para ${label}!`);
         this.engine.pendingBet = data.pendingBet;
         this.updateScoreboard();
@@ -1675,10 +1968,10 @@ class TrucoApp {
     } else if (data.type === 'MAO_DE_ONZE_EVENT') {
       const pName = this.engine.players[data.playerIndex] ? this.engine.players[data.playerIndex].name : 'Equipe';
       if (!data.play) {
-        this.sendSpeechBubble(data.playerIndex, 'Vamos fugir! 🏃');
+        this.sendSpeechBubble(data.playerIndex, 'Vamos fugir!');
         this.handleHandFinished({ winningTeam: data.winningTeam });
       } else {
-        this.sendSpeechBubble(data.playerIndex, 'Vamos pro jogo! ⚔️');
+        this.sendSpeechBubble(data.playerIndex, 'Vamos pro jogo!');
         this.triggerEventBanner('MÃO DE ONZE ACEITA', `${pName} decidiu encarar a mão!`);
         this.updateScoreboard();
         this.updateActionButtons();
@@ -1753,6 +2046,7 @@ class TrucoApp {
 
       if (this._pendingDealAnimation) {
         this._pendingDealAnimation = false;
+        this._skipTableRender = false;
         this.updateScoreboard();
         this.renderSeats();
         this.animateDealCards(() => {
@@ -1767,7 +2061,11 @@ class TrucoApp {
         this.renderSeats();
         this.renderViraCard();
         this.renderMyHand();
-        this.renderTableCards(this.engine.roundCards);
+        // Só recriar a mesa se não acabamos de processar um CARD_PLAYED_EVENT ou durante fade out da vasa
+        if (!this._skipTableRender && !this.isFadingTrickCards) {
+          this.renderTableCards(this.engine.roundCards);
+        }
+        this._skipTableRender = false;
         this.updateDealerAndTurnHighlights();
         this.updateActionButtons();
       }
@@ -1776,6 +2074,22 @@ class TrucoApp {
         this.showBetResponseUI(this.engine.pendingBet);
       } else {
         this.betResponseBar.style.display = 'none';
+      }
+
+      if (this.engine.isMaoDeOnze && !this.engine.handOver && this.engine.currentStake === 1) {
+        const isMyTeam = (this.engine.players[this.myPlayerIndex].team === this.engine.maoDeOnzeTeam);
+        if (isMyTeam && !this.maoDeOnzeModal.classList.contains('active')) {
+          this.renderMaoDeOnzeModal();
+          this.openModal(this.maoDeOnzeModal);
+        }
+      }
+
+      // Para o cliente P2P: ativa o timer se for a vez dele e a mão não acabou
+      if (!this.engine.handOver && !this.engine.gameOver && !this.engine.pendingBet &&
+        !this.isDealing && this.engine.currentTurnIndex === this.myPlayerIndex) {
+        this.startTurnTimer();
+      } else {
+        this.stopTurnTimer();
       }
 
       if (this.engine.gameOver) {
@@ -1997,9 +2311,9 @@ class TrucoApp {
     const totalWins = (this.seriesWins[0] || 0) + (this.seriesWins[1] || 0);
     if (totalWins > 0) {
       this.seriesBadge0.style.display = 'inline-block';
-      this.seriesBadge0.textContent = `${this.seriesWins[myTeam] || 0}🏆`;
+      this.seriesBadge0.textContent = `${this.seriesWins[myTeam] || 0}`;
       this.seriesBadge1.style.display = 'inline-block';
-      this.seriesBadge1.textContent = `${this.seriesWins[oppTeam] || 0}🏆`;
+      this.seriesBadge1.textContent = `${this.seriesWins[oppTeam] || 0}`;
     } else {
       this.seriesBadge0.style.display = 'none';
       this.seriesBadge1.style.display = 'none';
@@ -2022,7 +2336,7 @@ class TrucoApp {
     const winsEles = document.getElementById('seriesWinsEles');
     const modalWindow = this.gameOverModal?.querySelector('.game-over-window');
 
-    if (winIcon) winIcon.textContent = isWinner ? '🏆' : '💀';
+    if (winIcon) winIcon.textContent = isWinner ? 'VITÓRIA' : 'DERROTA';
     if (winTitle) {
       winTitle.textContent = isWinner ? 'VITÓRIA!' : 'DERROTA!';
       winTitle.className = isWinner ? 'modal-title victory' : 'modal-title defeat';
@@ -2051,6 +2365,11 @@ class TrucoApp {
     this.closeModals();
 
     if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      if (this.trickFadeTimer) {
+        clearTimeout(this.trickFadeTimer);
+        this.trickFadeTimer = null;
+      }
+      this.isFadingTrickCards = false;
       this.engine.resetMatch();
       this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
       this.updateScoreboard();
@@ -2105,12 +2424,18 @@ class TrucoApp {
     this.closeModals();
     this.stopTurnTimer();
 
+    if (this.trickFadeTimer) {
+      clearTimeout(this.trickFadeTimer);
+      this.trickFadeTimer = null;
+    }
+    this.isFadingTrickCards = false;
+
     // Zera contagem da série ao voltar para o menu
     this.seriesWins = [0, 0];
     this.updateSeriesHUD();
 
     if (this.network) {
-      try { this.network.disconnect(); } catch (e) {}
+      try { this.network.disconnect(); } catch (e) { }
       this.network = null;
     }
 
@@ -2119,6 +2444,7 @@ class TrucoApp {
     this.seatsContainer.innerHTML = '';
     this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
     this.viraContainer.innerHTML = '';
+    this.updateTopRightManilhasHUD(null);
     this.myHandElement.innerHTML = '';
     this.scoreTeam0.textContent = '0';
     this.scoreTeam1.textContent = '0';
@@ -2131,4 +2457,6 @@ class TrucoApp {
 
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new TrucoApp();
+  // Abre o lobby por padrão ao carregar
+  document.getElementById('lobbyModal')?.classList.add('active');
 });

@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Truco Paulista — Mesa Online</title>
   <meta name="description"
-    content="Jogue Truco Paulista online grátis com amigos ou bots. Salas de 2, 4 e 6 jogadores, sem cadastro, direto no navegador via WebRTC P2P para GitHub Pages.">
+    content="Jogue Truco Paulista online grátis com amigos ou bots. Salas de 2, 4 e 6 jogadores, sem cadastro, direto no navegador">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="css/main.css?v=1.3.0">
-  <link rel="stylesheet" href="css/table.css?v=1.3.0">
-  <link rel="stylesheet" href="css/animations.css?v=1.3.0">
+  <link rel="stylesheet" href="css/main.css?v=1.5.1">
+  <link rel="stylesheet" href="css/table.css?v=1.5.1">
+  <link rel="stylesheet" href="css/animations.css?v=1.5.1">
 
-  <!-- PeerJS WebRTC P2P (Serverless / GitHub Pages Friendly) -->
+
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 
@@ -22,7 +22,7 @@
   <!-- Barra Superior (HUD) -->
   <header class="app-header">
     <div class="logo-container">
-      <div class="logo-badge">♠</div>
+      <div class="logo-badge">♠️</div>
       <div>
         <span class="logo-text">TRUCO PAULISTA</span>
         <span class="logo-sub">ONLINE</span>
@@ -31,7 +31,7 @@
 
     <div class="header-center">
       <div class="room-pill" id="roomBadge" style="display: none;" title="Clique para copiar o link da sala">
-        <span>🔗</span>
+        <span>&#128279;</span>
         <span id="roomBadgeText">SALA: ----</span>
         <span class="copy-icon"></span>
       </div>
@@ -95,7 +95,8 @@
         <div class="hud-team nos">
           <span class="hud-team-tag">NÓS</span>
           <span class="hud-score-number" id="scoreTeam0">0</span>
-          <span class="hud-series-badge" id="seriesBadge0" style="display:none;" title="Vitórias da equipe na série">0🏆</span>
+          <span class="hud-series-badge" id="seriesBadge0" style="display:none;"
+            title="Vitórias da equipe na série">0</span>
         </div>
 
         <div class="hud-divider"></div>
@@ -110,12 +111,104 @@
         <div class="hud-divider"></div>
 
         <div class="hud-team eles">
-          <span class="hud-series-badge" id="seriesBadge1" style="display:none;" title="Vitórias da equipe na série">0🏆</span>
+          <span class="hud-series-badge" id="seriesBadge1" style="display:none;"
+            title="Vitórias da equipe na série">0</span>
           <span class="hud-score-number" id="scoreTeam1">0</span>
           <span class="hud-team-tag">ELES</span>
         </div>
 
         <div class="hud-stake-pill" id="currentStakeBadge">VALE 1 (NORMAL)</div>
+      </div>
+
+      <!-- Widget de Manilhas no Canto Superior Direito (Cartas em Si) -->
+      <div class="hud-manilhas-panel is-empty" id="hudManilhasWidget" title="Manilhas da rodada em ordem de força">
+        <div class="hud-manilhas-header">
+          <div class="hud-manilhas-header-left">
+            <span class="hud-manilhas-title">MANILHAS (<strong id="hudManilhaHeaderRank">—</strong>)</span>
+          </div>
+          <span class="hud-manilhas-order-sub">♣️ &gt; ❤️ &gt; ♠️ &gt; ♦️</span>
+        </div>
+        <div class="hud-manilhas-cards hud-manilhas-list" id="hudManilhasList">
+          <!-- 1º Zap: ♣️ [X] paus (Zap) -->
+          <div class="hud-card-wrap zap" id="hudCardZap" title="1ª maior: Zap — Paus (♣️)">
+            <div class="hud-mini-card suit-clubs">
+              <div class="hud-card-emblem zap">Zap</div>
+              <div class="hud-card-corner top">
+                <span class="m-rank">—</span>
+                <span class="m-suit">♣️</span>
+              </div>
+              <div class="hud-card-center">♣️</div>
+              <div class="hud-card-corner bottom">
+                <span class="m-rank">—</span>
+                <span class="m-suit">♣️</span>
+              </div>
+            </div>
+            <div class="hud-card-label">
+              <span class="hud-card-suit-name">paus</span>
+              <span class="hud-card-nick">(Zap)</span>
+            </div>
+          </div>
+
+          <!-- 2º Copeta: ❤️ [X] copeta (Copeta) -->
+          <div class="hud-card-wrap copeta" id="hudCardCopeta" title="2ª maior: Copeta — Copas (❤️)">
+            <div class="hud-mini-card suit-hearts">
+              <div class="hud-card-emblem copeta">Copeta</div>
+              <div class="hud-card-corner top">
+                <span class="m-rank">—</span>
+                <span class="m-suit">❤️</span>
+              </div>
+              <div class="hud-card-center">❤️</div>
+              <div class="hud-card-corner bottom">
+                <span class="m-rank">—</span>
+                <span class="m-suit">❤️</span>
+              </div>
+            </div>
+            <div class="hud-card-label">
+              <span class="hud-card-suit-name">copeta</span>
+              <span class="hud-card-nick">(Copeta)</span>
+            </div>
+          </div>
+
+          <!-- 3º Espadilha: ♠️ [X] espadilha (Espadilha) -->
+          <div class="hud-card-wrap espadilha" id="hudCardEspadilha" title="3ª maior: Espadilha — Espadas (♠️)">
+            <div class="hud-mini-card suit-spades">
+              <div class="hud-card-emblem espadilha">Espadilha</div>
+              <div class="hud-card-corner top">
+                <span class="m-rank">—</span>
+                <span class="m-suit">♠️</span>
+              </div>
+              <div class="hud-card-center">♠️</div>
+              <div class="hud-card-corner bottom">
+                <span class="m-rank">—</span>
+                <span class="m-suit">♠️</span>
+              </div>
+            </div>
+            <div class="hud-card-label">
+              <span class="hud-card-suit-name">espadilha</span>
+              <span class="hud-card-nick">(Espadilha)</span>
+            </div>
+          </div>
+
+          <!-- 4º Ouros: ♦️ [X] ouros (Pica-fumo / Ouros) -->
+          <div class="hud-card-wrap ouros" id="hudCardOuros" title="4ª maior: Pica-fumo / Ouros — Ouros (♦️)">
+            <div class="hud-mini-card suit-diamonds">
+              <div class="hud-card-emblem ouros">Pica-fumo</div>
+              <div class="hud-card-corner top">
+                <span class="m-rank">—</span>
+                <span class="m-suit">♦️</span>
+              </div>
+              <div class="hud-card-center">♦️</div>
+              <div class="hud-card-corner bottom">
+                <span class="m-rank">—</span>
+                <span class="m-suit">♦️</span>
+              </div>
+            </div>
+            <div class="hud-card-label">
+              <span class="hud-card-suit-name">ouros</span>
+              <span class="hud-card-nick">(Pica-fumo / Ouros)</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Assentos dos Jogadores ao Redor da Mesa -->
@@ -174,13 +267,14 @@
   </main>
 
   <!-- MODAL: Lobby Inicial -->
-  <div class="modal-overlay active" id="lobbyModal">
+  <div class="modal-overlay" id="lobbyModal">
     <div class="modal-window">
       <div class="modal-header">
         <h2 class="modal-title">TRUCO PAULISTA</h2>
+        <button class="modal-close modal-close-btn" id="btnCloseLobby" title="Fechar">×</button>
       </div>
       <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; line-height: 1.6;">
-        Jogue com amigos via P2P sem cadastro, ou treine contra bots inteligentes.
+        Jogue com amigos sem cadastro, ou treine contra bots inteligentes.
       </p>
 
       <button class="btn-cta" id="btnOpenCreateModal" style="margin-bottom: 10px;">Criar Sala Multiplayer</button>
@@ -289,24 +383,92 @@
   </div>
 
   <!-- MODAL: Decisão da Mão de Onze -->
-  <div class="modal-overlay" id="maoDeOnzeModal">
-    <div class="modal-window" style="border-color: var(--gold);">
-      <div class="modal-header">
-        <h2 class="modal-title" style="color: var(--gold-light);">⚡ MÃO DE ONZE!</h2>
+  <div class="modal-overlay modal-mao-de-onze" id="maoDeOnzeModal">
+    <div class="modal-window m11-window">
+      <div class="modal-header m11-header">
+        <div class="m11-title-group">
+          <h2 class="modal-title m11-title">MÃO DE ONZE</h2>
+        </div>
+        <button class="btn-m11-peek" id="btnM11Peek" type="button" title="Minimizar para visualizar a mesa inteira">
+          <span id="m11PeekIcon">&#128065;</span> <span id="m11PeekText">Espiar Mesa</span>
+        </button>
       </div>
-      <p style="color: var(--text-primary); font-size: 14px; margin-bottom: 14px; line-height: 1.6;">
-        Sua equipe atingiu <strong>11 pontos</strong>! Você pode ver suas cartas antes de decidir:
-      </p>
-      <ul
-        style="color: var(--text-secondary); font-size: 13px; margin-bottom: 22px; padding-left: 20px; line-height: 1.7;">
-        <li>Se <strong>Jogar</strong>: a mão vale <strong>3 pontos</strong>. O Truco é proibido.</li>
-        <li>Se <strong>Correr</strong>: o adversário leva <strong>1 ponto</strong> e uma nova mão se inicia.</li>
-      </ul>
-      <div style="display: flex; gap: 12px;">
-        <button class="btn-cta" id="btnMaoDeOnzePlay" style="flex: 1;">Encarar (Jogar)</button>
-        <button class="btn-outline" id="btnMaoDeOnzeRun"
-          style="flex: 1; margin-top: 0; background: rgba(239, 68, 68, 0.15); border-color: var(--team-eles); color: #f87171;">Fugir
-          (Dar 1 Ponto)</button>
+
+      <div class="m11-body" id="m11Body">
+        <!-- Vitrine de Vira e Manilha -->
+        <div class="m11-spotlight">
+          <div class="m11-vira-card-col">
+            <span class="m11-sublabel">CARTA VIRA</span>
+            <div class="m11-card-slot" id="m11ViraCardSlot">
+              <!-- Render do vira via JS -->
+            </div>
+          </div>
+          <div class="m11-manilha-info-col">
+            <div class="m11-manilha-headline">
+              <span class="m11-label-sub">MANILHA DA RODADA:</span>
+              <span class="m11-rank-badge" id="m11ManilhaRank">—</span>
+            </div>
+            <p class="m11-explain-text" id="m11ManilhaExplain">
+              Toda carta <strong id="m11ManilhaStrong">—</strong> é manilha nesta mão!
+            </p>
+            <div class="m11-suits-hierarchy">
+              <span class="m11-hierarchy-title">FORÇA DOS NAIPES:</span>
+              <div class="m11-hierarchy-pills">
+                <span class="m11-pill pill-zap">♣️ Zap</span>
+                <span class="m11-sep">&gt;</span>
+                <span class="m11-pill pill-copeta">❤️ Copeta</span>
+                <span class="m11-sep">&gt;</span>
+                <span class="m11-pill pill-espadilha">♠️ Espadilha</span>
+                <span class="m11-sep">&gt;</span>
+                <span class="m11-pill pill-ouros">♦️ Ouros</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção: Suas Cartas -->
+        <div class="m11-hand-panel">
+          <div class="m11-panel-header">
+            <span>SUAS CARTAS:</span>
+            <span class="m11-badge-status" id="m11HandSummary">Calculando...</span>
+          </div>
+          <div class="m11-cards-container" id="m11HandCards">
+            <!-- Cartas do jogador via JS -->
+          </div>
+        </div>
+
+        <!-- Seção opcional: Cartas do parceiro em duplas -->
+        <div class="m11-hand-panel" id="m11PartnerSection" style="display: none;">
+          <div class="m11-panel-header">
+            <span id="m11PartnerLabel">CARTAS DO PARCEIRO:</span>
+            <span class="m11-badge-status" id="m11PartnerSummary"></span>
+          </div>
+          <div class="m11-cards-container" id="m11PartnerCards">
+            <!-- Cartas do parceiro via JS -->
+          </div>
+        </div>
+
+        <!-- Regras rápidas -->
+        <div class="m11-rules-strip">
+          <div class="m11-rule">
+            <span class="m11-rule-icon">&#9876;</span>
+            <span><strong>Jogar:</strong> A mão vale <strong>3 pontos</strong> (Truco proibido).</span>
+          </div>
+          <div class="m11-rule">
+            <span class="m11-rule-icon">&#127939;</span>
+            <span><strong>Fugir:</strong> Adversários levam <strong>1 ponto</strong> e inicia nova mão.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rodapé de Ações -->
+      <div class="m11-actions-dock">
+        <button class="btn-m11-play" id="btnMaoDeOnzePlay">
+          <span>Encarar (Jogar por 3 pts)</span>
+        </button>
+        <button class="btn-m11-run" id="btnMaoDeOnzeRun">
+          <span>Fugir (Dar 1 Ponto)</span>
+        </button>
       </div>
     </div>
   </div>
@@ -314,7 +476,7 @@
   <!-- MODAL: Fim de Partida e Revanche -->
   <div class="modal-overlay" id="gameOverModal">
     <div class="modal-window game-over-window" style="max-width: 440px; text-align: center;">
-      <div class="game-over-icon" id="gameOverIcon">🏆</div>
+      <div class="game-over-icon" id="gameOverIcon">VIT&Oacute;RIA</div>
       <h2 class="modal-title" id="gameOverTitle" style="font-size: 24px; margin-bottom: 6px;">VITÓRIA!</h2>
       <p id="gameOverSubtitle" style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
         Sua equipe alcançou 12 pontos!
@@ -353,10 +515,10 @@
 
       <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 24px;">
         <button class="btn-cta" id="btnPlayAgain" style="width: 100%; font-size: 15px; padding: 14px 20px;">
-          🔄 Jogar Novamente (Revanche)
+          Jogar Novamente (Revanche)
         </button>
         <button class="btn-outline" id="btnReturnLobby" style="width: 100%; margin-top: 0; padding: 12px 20px;">
-          🏠 Voltar ao Menu Principal
+          Voltar ao Menu Principal
         </button>
       </div>
     </div>
@@ -366,7 +528,7 @@
   <div class="modal-overlay" id="rulesModal">
     <div class="modal-window" style="max-width: 520px; max-height: 85vh; overflow-y: auto;">
       <div class="modal-header">
-        <h2 class="modal-title">📜 Regras do Truco Paulista</h2>
+        <h2 class="modal-title">Regras do Truco Paulista</h2>
         <button class="modal-close modal-close-btn">&times;</button>
       </div>
 
@@ -379,10 +541,10 @@
         <p>A manilha é a carta imediatamente superior à vira (ex: vira 7 ➔ manilha Q; vira 3 ➔ manilha 4).</p>
         <p>Ordem de naipes das Manilhas (do maior para o menor):</p>
         <ul style="padding-left: 20px; margin-top: 4px;">
-          <li>♣️ <strong>Paus (Zap)</strong>: Maior carta do jogo</li>
-          <li>♥️ <strong>Copas (Copeta)</strong></li>
-          <li>♠️ <strong>Espadas (Espadilha)</strong></li>
-          <li>♦️ <strong>Ouros (Picafumo / Mole)</strong></li>
+          <li>♣️️ <strong>Paus (Zap)</strong>: Maior carta do jogo</li>
+          <li>❤️️ <strong>Copas (Copeta)</strong></li>
+          <li>♠️️ <strong>Espadas (Espadilha)</strong></li>
+          <li>♦️️ <strong>Ouros (Picafumo / Mole)</strong></li>
         </ul>
 
         <h3 style="color: var(--gold-light); margin: 16px 0 6px;">3. Apostas</h3>
@@ -400,19 +562,20 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/constants.js?v=1.4.0"></script>
-  <script src="js/deck.js?v=1.4.0"></script>
-  <script src="js/engine.js?v=1.4.0"></script>
-  <script src="js/bot.js?v=1.4.0"></script>
-  <script src="js/network.js?v=1.4.0"></script>
-  <script src="js/audio.js?v=1.4.0"></script>
-  <script src="js/app.js?v=1.4.0"></script>
+  <script src="js/constants.js?v=1.5.0"></script>
+  <script src="js/deck.js?v=1.5.0"></script>
+  <script src="js/engine.js?v=1.5.0"></script>
+  <script src="js/bot.js?v=1.5.0"></script>
+  <script src="js/network.js?v=1.5.0"></script>
+  <script src="js/audio.js?v=1.5.0"></script>
+  <script src="js/app.js?v=1.5.1"></script>
 
   <script>
     document.getElementById('btnOpenRules')?.addEventListener('click', () => {
       document.getElementById('rulesModal')?.classList.add('active');
     });
     document.getElementById('btnOpenLobby')?.addEventListener('click', () => {
+      document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
       document.getElementById('lobbyModal')?.classList.add('active');
     });
   </script>
