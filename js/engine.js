@@ -392,6 +392,7 @@ class TrucoEngine {
     if (!playHand) {
       // Desistiu / Correu: adversário ganha 1 ponto
       const opponentTeam = 1 - this.maoDeOnzeTeam;
+      this.currentStake = 1; // Atualiza stake para 1 (fugir dá 1 ponto, não 3)
       this.resolveHand(opponentTeam, 1, 'Equipe na Mão de Onze optou por não jogar');
       return { action: 'declined', winningTeam: opponentTeam, pointsWon: 1 };
     } else {

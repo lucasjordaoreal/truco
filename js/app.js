@@ -1272,7 +1272,13 @@ class TrucoApp {
       window.TrucoAudio.playWinChime();
       this.triggerEventBanner('VITÓRIA NA MÃO!', `Sua equipe marcou +${points} pontos!`);
     } else {
-      this.triggerEventBanner('DERROTA NA MÃO', `Adversários marcaram +${points} pontos.`);
+      // Diferenciar 1v1 de 2v2+ na mensagem de derrota
+      const is1v1 = this.engine.numPlayers === 2;
+      if (is1v1) {
+        this.triggerEventBanner('DERROTA NA MÃO', `Adversário marcou +${points} ponto.`);
+      } else {
+        this.triggerEventBanner('DERROTA NA MÃO', `Adversários marcaram +${points} ponto.`);
+      }
     }
 
     if (this.engine.gameOver) {
