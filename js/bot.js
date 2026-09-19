@@ -258,6 +258,63 @@ class TrucoBot {
     return hand.some(c => this._getCardPower(c) > highestUnseen);
   }
 
+  /**
+   * Estima a chance de vencer a mão a partir do estado atual.
+   * Usa as cartas ainda invisíveis e a quantidade de vasas que faltam.
+   */
+  _estimateHandWinProbability(ctx, sorted) {
+    if (!sorted || sorted.length === 0) return 0;
+    if (ctx.myVasas >= 2) return 1;
+
+    const cardWinProbability = (power) => {
+      if (power <= 0) return 0;
+      if (power > this._getHighestUnseenPower()) return 1;
+      return this._calculateWinProbability(power);
+    };
+
+    const strongest = cardWinProbability(sorted[sorted.length - 1].power);
+    const secondStrongest = sorted.length > 1
+      ? cardWinProbability(sorted[sorted.length - 2].power)
+      : 0;
+
+    // Depois de vencer ou empatar a 1ª vasa, basta levar a próxima.
+    if (ctx.myVasas === 1 || ctx.roundWinners[0] === -1) {
+      return strongest;
+    }
+
+    // Se o adversário levou a 1ª, precisamos levar as duas restantes.
+    if (ctx.oppVasas === 1) {
+      return strongest * secondStrongest;
+    }
+
+    // Antes da primeira vasa, vencer pelo menos duas das três é uma
+    // aproximação melhor do que tratar a mão como uma carta isolada.
+    return Math.min(1, strongest * secondStrongest + (1 - strongest) * secondStrongest * 0.5);
+  }
+
+  /**
+   * Compara aceitar a aposta com correr usando utilidade de partida.
+   * A proximidade dos 12 pontos muda o risco aceitável.
+   */
+  _shouldAcceptBet(ctx, targetStake, previousStake, handWinProbability) {
+    const utility = (myScore, oppScore) => {
+      if (myScore >= this.engine.maxScore) return 1;
+      if (oppScore >= this.engine.maxScore) return 0;
+      return Math.max(0.05, Math.min(0.95, 0.5 + (myScore - oppScore) / 24));
+    };
+
+    const acceptValue = handWinProbability * utility(
+      ctx.myScore + targetStake,
+      ctx.oppScore
+    ) + (1 - handWinProbability) * utility(
+      ctx.myScore,
+      ctx.oppScore + targetStake
+    );
+    const refuseValue = utility(ctx.myScore, ctx.oppScore + previousStake);
+
+    return acceptValue >= refuseValue;
+  }
+
   // =========================================================================
   // 5. DECISÃO DA MÃO DE ONZE (11 x N)
   // =========================================================================
@@ -449,45 +506,15 @@ class TrucoBot {
     }
 
     // -----------------------------------------------------------------------
-    // B. ANÁLISE POR CONTEXTO DE VASA
+    // B. ANÁLISE DE RISCO POR VASA E PELO PLACAR
     // -----------------------------------------------------------------------
-
-    // SITUAÇÃO 1: NOSSO TIME VENCEU A 1ª VASA
-    if (ctx.myVasas === 1) {
-      if (manilhasCount >= 1) return 'accept';
-      if (bestCardPower >= 9) return 'accept';
-      if (targetStake === 3 && bestCardPower >= 7) return 'accept';
-      if (targetStake >= 6 && bestCardPower < 7) return 'refuse';
-      return 'accept';
-    }
-
-    // SITUAÇÃO 2: A 1ª VASA EMPATOU (CANGA NA 1ª)
-    if (ctx.roundWinners[0] === -1) {
-      if (manilhasCount >= 1) return 'accept';
-      if (bestCardPower === 10 && targetStake <= 3) return 'accept';
-      return 'refuse';
-    }
-
-    // SITUAÇÃO 3: O ADVERSÁRIO VENCEU A 1ª VASA
-    if (ctx.oppVasas === 1) {
-      if (manilhasCount >= 2) return 'accept';
-      if (manilhasCount === 1 && bestCardPower >= 1003 && sorted[0].power >= 8) {
-        return 'accept';
-      }
-      return 'refuse';
-    }
-
-    // SITUAÇÃO 4: PEDIDO FEITO NA 1ª VASA (round 0)
-    if (ctx.currentRound === 0) {
-      if (manilhasCount >= 1) return 'accept';
-
-      const handScore = this.evaluateHand(hand, e.vira);
-      if (targetStake === 3 && handScore >= 25) return 'accept';
-      if (targetStake >= 6) return 'refuse';
-      return 'refuse';
-    }
-
-    return 'refuse';
+    const handWinProbability = this._estimateHandWinProbability(ctx, sorted);
+    return this._shouldAcceptBet(
+      ctx,
+      targetStake,
+      bet.previousStake,
+      handWinProbability
+    ) ? 'accept' : 'refuse';
   }
 
   // =========================================================================

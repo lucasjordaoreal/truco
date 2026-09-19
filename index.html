@@ -8,6 +8,12 @@
   <meta name="description"
     content="Jogue Truco Paulista online grátis com amigos ou bots. Salas de 2, 4 e 6 jogadores, sem cadastro, direto no navegador">
 
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+
   <!-- CSS -->
   <link rel="stylesheet" href="css/main.css?v=1.5.1">
   <link rel="stylesheet" href="css/table.css?v=1.5.1">
@@ -39,7 +45,8 @@
     </div>
 
     <div class="header-actions">
-      <button class="hud-btn" id="btnToggleAudio" title="Ativar/Desativar Som">SOM</button>
+      <button class="hud-btn" id="btnToggleAudio" title="Ativar/Desativar SOM">SOM</button>
+      <button class="hud-btn" id="btnToggleMusic" title="Ativar/Desativar Música">MÚSICA ON</button>
       <button class="hud-btn" id="btnOpenRules" title="Regras do Truco">REGRAS</button>
       <button class="hud-btn" id="btnOpenChat" title="Chat da Mesa" style="position:relative;">CHAT <span
           class="chat-unread-badge" id="chatUnreadBadge" style="display:none;">!</span></button>
@@ -581,8 +588,8 @@
   <script src="js/engine.js?v=1.5.0"></script>
   <script src="js/bot.js?v=1.5.0"></script>
   <script src="js/network.js?v=1.5.2"></script>
-  <script src="js/audio.js?v=1.5.0"></script>
-  <script src="js/app.js?v=1.5.2"></script>
+  <script src="js/audio.js?v=1.6.0"></script>
+  <script src="js/app.js?v=1.6.0"></script>
 
   <script>
     document.getElementById('btnOpenRules')?.addEventListener('click', () => {

@@ -272,6 +272,189 @@ class TrucoAudio {
     osc.start();
     osc.stop(this.ctx.currentTime + 0.1);
   }
+
+  playCountdownTick(secondsRemaining) {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const progress = (10 - secondsRemaining) / 9;
+    const duration = 0.16 - progress * 0.08;
+    const startTime = this.ctx.currentTime;
+    const frequency = 420 + progress * 360;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(frequency, startTime);
+    gain.gain.setValueAtTime(0.22, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  playTimeoutWarning() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const startTime = this.ctx.currentTime;
+    [180, 120].forEach((frequency, index) => {
+      const noteStart = startTime + index * 0.16;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(frequency, noteStart);
+      gain.gain.setValueAtTime(0.3, noteStart);
+      gain.gain.exponentialRampToValueAtTime(0.01, noteStart + 0.14);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(noteStart);
+      osc.stop(noteStart + 0.14);
+    });
+  }
+}
+
+class TrucoMusic {
+  constructor() {
+    this.ctx = null;
+    this.audio = null;
+    this.source = null;
+    this.gain = null;
+    this.muted = false;
+    this.playing = false;
+    this.trackIndex = -1;
+    this.startPromise = null;
+    this.trackGains = [];
+    this.tracks = Array.from({ length: 17 }, (_, index) => `music/music${String(index).padStart(2, '0')}.mp3`);
+  }
+
+  async start() {
+    if (this.muted || this.playing) return;
+    if (this.startPromise) return this.startPromise;
+
+    this.startPromise = this._start().finally(() => {
+      this.startPromise = null;
+    });
+    return this.startPromise;
+  }
+
+  async _start() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+      this.audio = new Audio();
+      this.audio.preload = 'auto';
+      this.audio.addEventListener('ended', () => this.playNext());
+      this.source = this.ctx.createMediaElementSource(this.audio);
+      this.gain = this.ctx.createGain();
+      this.source.connect(this.gain);
+      this.gain.connect(this.ctx.destination);
+    }
+
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.trackIndex < 0) {
+      this.shuffleTracks();
+      this.trackIndex = 0;
+      this.audio.src = this.tracks[this.trackIndex];
+      this.gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+      this.audio.play().then(() => {
+        this.playing = true;
+      }).catch(() => {
+        this.playing = false;
+      });
+    }
+    if (!this.trackGains.length) {
+      await this.analyzeTracks();
+      if (this.playing && !this.muted) {
+        this.gain.gain.setTargetAtTime(this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime, 0.03);
+      }
+      return;
+    }
+    await this.playNext();
+  }
+
+  async analyzeTracks() {
+    const cached = window.localStorage.getItem('trucoMusicGainsV1');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && !Array.isArray(parsed) && this.tracks.every(track => Number.isFinite(parsed[track]))) {
+          this.trackGains = this.tracks.map(track => parsed[track]);
+          return;
+        }
+      } catch (_) {
+        window.localStorage.removeItem('trucoMusicGainsV1');
+      }
+    }
+
+    const targetDb = -20;
+    this.trackGains = [];
+    for (const track of this.tracks) {
+      try {
+        const response = await fetch(track);
+        const buffer = await this.ctx.decodeAudioData(await response.arrayBuffer());
+        let sumSquares = 0;
+        let sampleCount = 0;
+        for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+          const samples = buffer.getChannelData(channel);
+          for (let index = 0; index < samples.length; index++) {
+            sumSquares += samples[index] * samples[index];
+          }
+          sampleCount += samples.length;
+        }
+        const rms = Math.max(Math.sqrt(sumSquares / sampleCount), 0.00001);
+        const rmsDb = 20 * Math.log10(rms);
+        this.trackGains.push(Math.min(4, Math.pow(10, (targetDb - rmsDb) / 20)));
+      } catch (_) {
+        this.trackGains.push(1);
+      }
+    }
+    const gainsByTrack = this.tracks.reduce((gains, track, index) => {
+      gains[track] = this.trackGains[index];
+      return gains;
+    }, {});
+    window.localStorage.setItem('trucoMusicGainsV1', JSON.stringify(gainsByTrack));
+  }
+
+  shuffleTracks() {
+    for (let index = this.tracks.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [this.tracks[index], this.tracks[swapIndex]] = [this.tracks[swapIndex], this.tracks[index]];
+      if (this.trackGains.length === this.tracks.length) {
+        [this.trackGains[index], this.trackGains[swapIndex]] = [this.trackGains[swapIndex], this.trackGains[index]];
+      }
+    }
+  }
+
+  async playNext() {
+    if (!this.audio || this.muted) return;
+    this.trackIndex = (this.trackIndex + 1) % this.tracks.length;
+    this.audio.src = this.tracks[this.trackIndex];
+    this.gain.gain.setValueAtTime(this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime);
+    try {
+      await this.audio.play();
+      this.playing = true;
+    } catch (_) {
+      this.playing = false;
+    }
+  }
+
+  setMuted(muted) {
+    this.muted = muted;
+    if (this.gain && this.ctx) {
+      this.gain.gain.setTargetAtTime(muted ? 0 : this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime, 0.03);
+    }
+    if (!muted) this.start();
+  }
 }
 
 window.TrucoAudio = new TrucoAudio();
+window.TrucoMusic = new TrucoMusic();

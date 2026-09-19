@@ -266,9 +266,19 @@ class TrucoApp {
     // Áudio toggle
     document.getElementById('btnToggleAudio')?.addEventListener('click', (e) => {
       window.TrucoAudio.muted = !window.TrucoAudio.muted;
-      e.currentTarget.textContent = window.TrucoAudio.muted ? 'Mudo' : 'Som';
+      e.currentTarget.textContent = window.TrucoAudio.muted ? 'MUDO' : 'SOM';
       this.showToast(window.TrucoAudio.muted ? 'Sons desativados' : 'Sons ativados');
     });
+
+    document.getElementById('btnToggleMusic')?.addEventListener('click', (e) => {
+      window.TrucoMusic.setMuted(!window.TrucoMusic.muted);
+      e.currentTarget.textContent = window.TrucoMusic.muted ? 'MÚSICA OFF' : 'MÚSICA ON';
+      this.showToast(window.TrucoMusic.muted ? 'Música desativada' : 'Música ativada');
+    });
+
+    document.addEventListener('pointerdown', () => {
+      window.TrucoMusic?.start?.();
+    }, { once: true });
   }
 
   openModal(modal) {
@@ -1665,6 +1675,17 @@ class TrucoApp {
     const player = this.engine.players ? this.engine.players[currentIdx] : null;
     if (!player) return;
 
+    if (this.engine.isMaoDeOnze && this.engine.maoDeOnzeDecisionPending) {
+      const localPlayer = this.engine.players[this.myPlayerIndex];
+      const localTeamCanDecide = localPlayer && !localPlayer.isBot && localPlayer.team === this.engine.maoDeOnzeTeam;
+      if (localTeamCanDecide) {
+        this.startTurnTimer();
+      } else {
+        this.stopTurnTimer();
+      }
+      return;
+    }
+
     this.stopTurnTimer();
 
     if (player.isBot) {
@@ -1759,9 +1780,20 @@ class TrucoApp {
         this.timerArc.classList.add('urgent');
       }
 
+      if (remaining > 0 && remaining <= 10) {
+        window.TrucoAudio?.playCountdownTick?.(remaining);
+      }
+
       if (remaining <= 0) {
+        window.TrucoAudio?.playTimeoutWarning?.();
         this.stopTurnTimer();
-        this._autoPlayRandomCard();
+
+        if (this.engine?.isMaoDeOnze && this.engine.maoDeOnzeDecisionPending && this.maoDeOnzeModal?.classList.contains('active')) {
+          this.showToast('Tempo esgotado! Mão de onze aceita por 3 pontos.', 'warning');
+          this.handleMaoDeOnzeDecision(true);
+        } else {
+          this._autoPlayRandomCard();
+        }
       }
     }, 1000);
   }
@@ -2187,6 +2219,7 @@ class TrucoApp {
       this.engine.lastBettorTeam = data.lastBettorTeam;
       this.engine.isMaoDeOnze = !!data.isMaoDeOnze;
       this.engine.maoDeOnzeTeam = data.maoDeOnzeTeam;
+      this.engine.maoDeOnzeDecisionPending = data.maoDeOnzeDecisionPending !== false;
       this.engine.isMaoDeFerro = !!data.isMaoDeFerro;
       this.engine.handOver = !!data.handOver;
       this.engine.gameOver = !!data.gameOver;
@@ -2239,7 +2272,7 @@ class TrucoApp {
         this.betResponseBar.style.display = 'none';
       }
 
-      if (this.engine.isMaoDeOnze && !this.engine.handOver && this.engine.currentStake === 1) {
+      if (this.engine.isMaoDeOnze && this.engine.maoDeOnzeDecisionPending && !this.engine.handOver) {
         const isMyTeam = (this.engine.players[this.myPlayerIndex].team === this.engine.maoDeOnzeTeam);
         if (isMyTeam && !this.maoDeOnzeModal.classList.contains('active')) {
           this.renderMaoDeOnzeModal();
@@ -2248,8 +2281,13 @@ class TrucoApp {
       }
 
       // Para o cliente P2P: ativa o timer se for a vez dele e a mão não acabou
+      const localMaoDeOnzeDecision = this.engine.isMaoDeOnze &&
+        this.engine.maoDeOnzeDecisionPending &&
+        this.engine.players[this.myPlayerIndex] &&
+        this.engine.players[this.myPlayerIndex].team === this.engine.maoDeOnzeTeam &&
+        !this.engine.players[this.myPlayerIndex].isBot;
       if (!this.engine.handOver && !this.engine.gameOver && !this.engine.pendingBet &&
-        !this.isDealing && this.engine.currentTurnIndex === this.myPlayerIndex) {
+        !this.isDealing && (this.engine.currentTurnIndex === this.myPlayerIndex || localMaoDeOnzeDecision)) {
         this.startTurnTimer();
       } else {
         this.stopTurnTimer();
@@ -2297,6 +2335,7 @@ class TrucoApp {
           lastBettorTeam: this.engine.lastBettorTeam,
           isMaoDeOnze: this.engine.isMaoDeOnze,
           maoDeOnzeTeam: this.engine.maoDeOnzeTeam,
+          maoDeOnzeDecisionPending: this.engine.maoDeOnzeDecisionPending,
           isMaoDeFerro: this.engine.isMaoDeFerro,
           handOver: this.engine.handOver,
           gameOver: this.engine.gameOver,
@@ -2497,66 +2536,84 @@ class TrucoApp {
   _detectChatIntent(text) {
     const t = text.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
-      .replace(/[^a-z0-9\s!?]/g, ' ')
+      .replace(/[^a-z0-9\s]/g, ' ')
       .trim();
 
-    const intents = [];
+    const intentScores = new Map();
+    const matchesTerm = (term) => {
+      const normalizedTerm = term.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .trim();
+      const pattern = normalizedTerm
+        .split(/\s+/)
+        .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('\\s+');
+      return new RegExp(`(^|\\s)${pattern}(?=\\s|$)`).test(t);
+    };
+    const addIntent = (intent, words, weight = 1) => {
+      const matches = words.filter(matchesTerm);
+      if (matches.length > 0) {
+        const phraseBonus = matches.reduce((total, word) => total + (word.includes(' ') ? 2 : 1), 0);
+        intentScores.set(intent, phraseBonus * weight);
+      }
+    };
 
     // — Saudação
     const greetWords = ['oi', 'ola', 'eai', 'e ai', 'fala', 'salve', 'bom dia', 'boa tarde', 'boa noite', 'buenas', 'hey', 'hello', 'hi', 'ae', 'beleza', 'firmeza', 'suave', 'tranquilo', 'fala ai', 'como vai', 'tudo bem', 'tudo certo'];
-    if (greetWords.some(w => t.includes(w))) intents.push('greeting');
+    addIntent('greeting', greetWords);
 
     // — Provocação / Trash talk
     const provWords = ['ruim', 'fraco', 'lixo', 'noob', 'perdedor', 'cagao', 'cagou', 'medo', 'covarde', 'otario', 'trouxa', 'burro', 'idiota', 'bosta', 'merda', 'nada', 'nao sabe', 'aprende', 'volta pra', 'nao aguenta', 'frouxo', 'patético', 'ridiculo', 'mole', 'vai chorar', 'chora', 'chorao', 'chorando', 'arregou', 'arrega', 'corre', 'fugiu', 'pipoca', 'amarelou', 'medroso', 'perna bamba', 'perdeu mal'];
-    if (provWords.some(w => t.includes(w))) intents.push('provocation');
+    addIntent('provocation', provWords, 1.2);
 
     // — Elogio / Boa jogada
     const praiseWords = ['boa', 'parabens', 'mandou bem', 'boa jogada', 'show', 'bonito', 'top', 'monstro', 'craque', 'mito', 'fera', 'brabo', 'braba', 'demais', 'daora', 'sensacional', 'incrivel', 'excelente', 'genial', 'lindo', 'jogou bem', 'bem jogado', 'boaa', 'nice', 'gostei', 'isso ai'];
-    if (praiseWords.some(w => t.includes(w))) intents.push('praise');
+    addIntent('praise', praiseWords);
 
     // — Truco / Aposta
     const trucoWords = ['truco', 'seis', 'nove', 'doze', 'trucão', 'trucao', 'pede truco', 'mete truco', 'manda truco', 'vale', 'aposta', 'aumenta', 'retruca'];
-    if (trucoWords.some(w => t.includes(w))) intents.push('truco_talk');
+    addIntent('truco_talk', trucoWords, 1.3);
 
     // — Manilha / Carta específica
     const cardWords = ['manilha', 'zap', 'copeta', 'espadilha', 'picafumo', 'ouros', 'tres', '3', 'carta', 'mao', 'vira'];
-    if (cardWords.some(w => t.includes(w))) intents.push('card_talk');
+    addIntent('card_talk', cardWords);
 
     // — Placar / Score
     const scoreWords = ['placar', 'pontos', 'ganhando', 'perdendo', 'empate', 'empatado', 'score', 'quanto', 'ponto', 'atras', 'na frente', 'vantagem'];
-    if (scoreWords.some(w => t.includes(w))) intents.push('score_talk');
+    addIntent('score_talk', scoreWords, 1.3);
 
     // — Dúvida / Incerteza
     const doubtWords = ['sera', 'nao sei', 'duvido', 'acho que', 'talvez', 'hmm', 'hm', 'eita', 'nossa', 'caramba', 'misericordia', 'jesus', 'meu deus', 'duvida', 'como', 'por que', 'porque'];
-    if (doubtWords.some(w => t.includes(w))) intents.push('doubt');
+    addIntent('doubt', doubtWords);
 
     // — Pedido de ajuda / parceiro
     const teamWords = ['parceiro', 'parceira', 'dupla', 'time', 'equipe', 'ajuda', 'confia', 'comigo', 'junto', 'nosso', 'nossa', 'bora', 'vamo', 'vamos'];
-    if (teamWords.some(w => t.includes(w))) intents.push('team_talk');
+    addIntent('team_talk', teamWords);
 
     // — Despedida / Fim
     const byeWords = ['tchau', 'flw', 'falou', 'ate mais', 'ate logo', 'fui', 'saindo', 'vou sair', 'bye', 'adeus', 'valeu', 'obrigado', 'obrigada', 'tmj', 'vlw'];
-    if (byeWords.some(w => t.includes(w))) intents.push('farewell');
+    addIntent('farewell', byeWords, 1.2);
 
     // — Risada
     const laughWords = ['haha', 'kkk', 'rsrs', 'lol', 'rir', 'huahua', 'hehe', 'ahahah', 'kkkkk', 'kkkk', 'rss', 'huehue', 'hue'];
-    if (laughWords.some(w => t.includes(w))) intents.push('laugh');
+    addIntent('laugh', laughWords);
 
     // — Reclamação / Frustração
     const frustrWords = ['droga', 'pqp', 'puts', 'cacete', 'caralho', 'inferno', 'desgraca', 'azar', 'que azar', 'impossivel', 'injusto', 'absurdo', 'que carta', 'nao acredito', 'roubado', 'roubando', 'hack'];
-    if (frustrWords.some(w => t.includes(w))) intents.push('frustration');
+    addIntent('frustration', frustrWords, 1.2);
 
     // — Confiança / Arrogância
     const confWords = ['facil', 'tranquilo', 'moleza', 'barbada', 'ja ganhei', 'ja era', 'sem chance', 'impossivel perder', 'to on', 'to forte', 'minha vez'];
-    if (confWords.some(w => t.includes(w))) intents.push('confidence');
+    addIntent('confidence', confWords, 1.1);
 
     // — Emoji / Reação pura
-    if (t.replace(/\s/g, '').length <= 3 && /[!?]/.test(text)) intents.push('reaction');
+    if (t.replace(/\s/g, '').length <= 3 && /[!?]/.test(text)) intentScores.set('reaction', 1);
 
-    // fallback
-    if (intents.length === 0) intents.push('generic');
-
-    return intents;
+    const intents = [...intentScores.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([intent]) => intent);
+    return intents.length > 0 ? intents : ['generic'];
   }
 
   /**
@@ -2595,13 +2652,23 @@ class TrucoApp {
    * @param {string} intent - A intenção principal detectada
    * @param {object} ctx - Contexto do jogo
    * @param {number} botIndex - Índice do bot respondente
+   * @param {string} sourceText - Mensagem original do jogador
    * @returns {string} Resposta do bot
    */
-  _buildBotResponse(intent, ctx, botIndex) {
+  _buildBotResponse(intent, ctx, botIndex, sourceText = '') {
     // Personalidades dos bots por índice (cicla entre 3 tipos)
     const persona = (botIndex % 3); // 0=debochado, 1=zoeiro, 2=agressivo/boca suja
 
-    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const responseSeed = this._getStableChatHash([
+      sourceText,
+      intent,
+      botIndex,
+      ctx?.myScore,
+      ctx?.botScore,
+      ctx?.currentStake,
+      ctx?.currentRound
+    ].join('|'));
+    const pick = (arr) => arr[responseSeed % arr.length];
 
     // Helpers de contexto
     const botWinning = ctx && ctx.botScore > ctx.myScore;
@@ -2914,6 +2981,15 @@ class TrucoApp {
     }
   }
 
+  _getStableChatHash(value) {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i++) {
+      hash ^= value.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
   /**
    * Bot responde ao chat do jogador de forma inteligente.
    * Analisa a mensagem, detecta a intenção e responde com contexto do jogo.
@@ -2931,21 +3007,11 @@ class TrucoApp {
     // Contexto do jogo
     const ctx = this._getChatGameContext();
 
-    // Decide quais bots respondem
-    // Saudações e provocações: alta chance de resposta (80%)
-    // Genérico: chance moderada (55%)
-    // Reação/emoji: baixa chance (30%)
-    let responseChance = 0.55;
-    if (['greeting', 'provocation', 'farewell'].includes(primaryIntent)) responseChance = 0.80;
-    else if (['praise', 'truco_talk', 'frustration', 'confidence'].includes(primaryIntent)) responseChance = 0.70;
-    else if (['reaction'].includes(primaryIntent)) responseChance = 0.30;
-
-    // Primeiro bot responde com a chance principal
-    if (Math.random() > responseChance) return;
-
-    const respondingIdx = parseInt(botIndices[Math.floor(Math.random() * botIndices.length)]);
+    // Sempre responde uma vez: o bot e a frase são definidos de forma determinística.
+    const botChoice = this._getStableChatHash(playerMessage || 'mensagem') % botIndices.length;
+    const respondingIdx = parseInt(botIndices[botChoice]);
     const botName = this.engine.players[respondingIdx] ? this.engine.players[respondingIdx].name : `Bot ${respondingIdx}`;
-    const response = this._buildBotResponse(primaryIntent, ctx, respondingIdx);
+    const response = this._buildBotResponse(primaryIntent, ctx, respondingIdx, playerMessage);
 
     // Delay natural de digitação (600ms a 1800ms, mais longo para respostas maiores)
     const typingDelay = 600 + Math.min(response.length * 15, 1200);
@@ -2955,24 +3021,6 @@ class TrucoApp {
       this.sendSpeechBubble(respondingIdx, response);
       window.TrucoAudio?.playNotification?.();
     }, typingDelay);
-
-    // Chance de segundo bot responder (20%) — cria dinamismo na conversa
-    if (botIndices.length >= 2 && Math.random() < 0.20) {
-      const remainingBots = botIndices.filter(i => parseInt(i) !== respondingIdx);
-      if (remainingBots.length > 0) {
-        const secondIdx = parseInt(remainingBots[Math.floor(Math.random() * remainingBots.length)]);
-        const secondName = this.engine.players[secondIdx] ? this.engine.players[secondIdx].name : `Bot ${secondIdx}`;
-
-        // Segundo bot usa intent secundário ou genérico
-        const secondIntent = intents[1] || 'generic';
-        const secondResponse = this._buildBotResponse(secondIntent, ctx, secondIdx);
-
-        setTimeout(() => {
-          this.addChatMessage('other', secondName, secondResponse, secondIdx);
-          this.sendSpeechBubble(secondIdx, secondResponse);
-        }, typingDelay + 800 + Math.random() * 1200);
-      }
-    }
   }
 
   /** Bot manda mensagem de chat num evento de jogo (truco, vasa, etc) */

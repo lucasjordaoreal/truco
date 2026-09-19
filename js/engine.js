@@ -32,6 +32,7 @@ class TrucoEngine {
     // Modos especiais
     this.isMaoDeOnze = false;
     this.maoDeOnzeTeam = null; // Qual time está com 11
+    this.maoDeOnzeDecisionPending = false;
     this.isMaoDeFerro = false; // 11 x 11 às cegas
     this.handOver = false;
     this.gameOver = false;
@@ -69,6 +70,7 @@ class TrucoEngine {
     this.isMaoDeFerro = (this.scores[0] === 11 && this.scores[1] === 11);
     this.isMaoDeOnze = (!this.isMaoDeFerro && (this.scores[0] === 11 || this.scores[1] === 11));
     this.maoDeOnzeTeam = this.isMaoDeOnze ? (this.scores[0] === 11 ? 0 : 1) : null;
+    this.maoDeOnzeDecisionPending = this.isMaoDeOnze;
 
     if (this.isMaoDeOnze) {
       this.currentStake = 3; // Em SP, se aceita a mão de 11, vale 3 pontos
@@ -86,7 +88,18 @@ class TrucoEngine {
     // O "mão" é o jogador seguinte ao carteador
     this.handStarterIndex = (this.dealerIndex + 1) % this.numPlayers;
     this.currentTurnIndex = this.handStarterIndex;
-    this.trickStarters[0] = this.handStarterIndex;
+
+    if (this.isMaoDeOnze) {
+      for (let offset = 0; offset < this.numPlayers; offset++) {
+        const candidateIndex = (this.handStarterIndex + offset) % this.numPlayers;
+        if (this.players[candidateIndex].team === this.maoDeOnzeTeam) {
+          this.currentTurnIndex = candidateIndex;
+          break;
+        }
+      }
+    }
+
+    this.trickStarters[0] = this.currentTurnIndex;
 
     return {
       scores: [...this.scores],
@@ -392,11 +405,13 @@ class TrucoEngine {
     if (!playHand) {
       // Desistiu / Correu: adversário ganha 1 ponto
       const opponentTeam = 1 - this.maoDeOnzeTeam;
+      this.maoDeOnzeDecisionPending = false;
       this.currentStake = 1; // Atualiza stake para 1 (fugir dá 1 ponto, não 3)
       this.resolveHand(opponentTeam, 1, 'Equipe na Mão de Onze optou por não jogar');
       return { action: 'declined', winningTeam: opponentTeam, pointsWon: 1 };
     } else {
       // Aceitou jogar: a mão vale 3 pontos
+      this.maoDeOnzeDecisionPending = false;
       this.currentStake = 3;
       return { action: 'accepted', stake: 3 };
     }
