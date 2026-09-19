@@ -16,6 +16,11 @@ class TrucoApp {
       fillBots: true
     };
 
+    // Timer de vez
+    this._turnTimerInterval = null;
+    this._turnTimerRemaining = 30;
+    this._timerCircumference = 175.9; // 2*pi*28
+
     this.initElements();
     this.bindEvents();
     this.checkUrlInvite();
@@ -55,9 +60,25 @@ class TrucoApp {
     this.roomBadge = document.getElementById('roomBadge');
     this.roomBadgeText = document.getElementById('roomBadgeText');
 
-    // Chat rápido
-    this.btnQuickChat = document.getElementById('btnQuickChat');
-    this.quickChatList = document.getElementById('quickChatList');
+    // Chat rápido (removido - agora é painel lateral)
+    this.btnQuickChat = null;
+    this.quickChatList = null;
+
+    // Timer overlay
+    this.turnOverlay   = document.getElementById('turnOverlay');
+    this.turnCountdown = document.getElementById('turnCountdown');
+    this.timerArc      = document.getElementById('timerArc');
+
+    // Chat panel
+    this.chatPanel        = document.getElementById('chatPanel');
+    this.chatMessages     = document.getElementById('chatMessages');
+    this.chatInput        = document.getElementById('chatInput');
+    this.chatUnreadBadge  = document.getElementById('chatUnreadBadge');
+    this._chatOpen        = false;
+    this._chatUnread      = 0;
+
+    // Configuração solo
+    this._soloNumPlayers = 4;
   }
 
   bindEvents() {
@@ -96,30 +117,39 @@ class TrucoApp {
       this.handleMaoDeOnzeDecision(false);
     });
 
-    // Chat Rápido
-    this.btnQuickChat.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.quickChatList.classList.toggle('is-visible');
+    // === CHAT PANEL ===
+    document.getElementById('btnOpenChat').addEventListener('click', () => {
+      this.toggleChatPanel();
     });
 
-    document.addEventListener('click', () => {
-      this.quickChatList.classList.remove('is-visible');
+    document.getElementById('btnCloseChat').addEventListener('click', () => {
+      this.closeChatPanel();
     });
 
-    document.querySelectorAll('.chat-phrase-btn').forEach(btn => {
+    document.getElementById('btnChatSend').addEventListener('click', () => {
+      this.handleChatSend();
+    });
+
+    this.chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); this.handleChatSend(); }
+    });
+
+    // === SOLO MODAL ===
+    document.querySelectorAll('#soloNumPlayers .segment-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const text = btn.textContent;
-        this.sendSpeechBubble(this.myPlayerIndex, text);
-        if (!this.isSinglePlayer && this.network) {
-          const msg = { type: 'CHAT', playerIndex: this.myPlayerIndex, text: text };
-          if (this.network.isHost) {
-            this.network.broadcast(msg);
-          } else {
-            this.network.sendToHost(msg);
-          }
-        }
+        document.querySelectorAll('#soloNumPlayers .segment-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._soloNumPlayers = parseInt(btn.dataset.players, 10);
       });
     });
+
+    document.getElementById('btnConfirmSolo').addEventListener('click', () => {
+      const name = document.getElementById('soloPlayerName').value.trim() || 'Você';
+      this.startSoloGame(this._soloNumPlayers, name);
+    });
+
+    // Antigo quick-chat (mantido por compatibilidade, mas sem UI)
+    // nenhuma ação necessária
 
     // Modais de Criação e Entrada
     document.getElementById('btnOpenCreateModal').addEventListener('click', () => {
@@ -130,8 +160,8 @@ class TrucoApp {
       this.openModal(this.joinRoomModal);
     });
 
-    document.getElementById('btnSoloPlay').addEventListener('click', () => {
-      this.startSoloGame(4);
+    document.getElementById('btnOpenSoloModal').addEventListener('click', () => {
+      this.openModal(document.getElementById('soloModal'));
     });
 
     document.getElementById('btnConfirmCreate').addEventListener('click', () => {
@@ -203,7 +233,7 @@ class TrucoApp {
   // INICIALIZAÇÃO DE PARTIDAS
   // ==========================================
 
-  startSoloGame(numPlayers = 4) {
+  startSoloGame(numPlayers = 4, playerName = 'Você') {
     this.isSinglePlayer = true;
     this.closeModals();
     this.myPlayerIndex = 0;
@@ -214,7 +244,7 @@ class TrucoApp {
     this.roomBadgeText.textContent = `SOLO (${numPlayers}P)`;
 
     const playerConfigs = [
-      { id: 'me', name: 'Você', isBot: false }
+      { id: 'me', name: playerName, isBot: false }
     ];
 
     const botNames = ['Chico Bento', 'Zeca Mão de Onze', 'Pedrão do Zap', 'Tião Carreiro', 'Tonho'];
@@ -226,6 +256,7 @@ class TrucoApp {
       });
     }
 
+    this.addChatMessage('system', '', `Partida iniciada — ${numPlayers} jogadores`);
     this.setupEngineAndBots(numPlayers, playerConfigs);
   }
 
@@ -277,7 +308,8 @@ class TrucoApp {
         });
       }
 
-      this.setupEngineAndBots(this.roomConfig.numPlayers, playerConfigs);
+      const hasWaiting = !fillBots;
+      this.setupEngineAndBots(this.roomConfig.numPlayers, playerConfigs, !hasWaiting);
       this.showToast(`Sala criada! Código: ${roomId}`, 'success');
     } catch (err) {
       this.showToast(`Erro ao criar sala: ${err.message}`, 'error');
@@ -303,8 +335,8 @@ class TrucoApp {
       onDisconnect: (reason) => {
         this.showToast(reason, 'error');
       },
-      onMessage: (data) => {
-        this.handleNetworkMessage(data);
+      onMessage: (data, fromPeerId) => {
+        this.handleNetworkMessage(data, fromPeerId);
       }
     });
 
@@ -315,13 +347,14 @@ class TrucoApp {
       this.roomConfig.id = roomId;
       this.roomBadge.style.display = 'flex';
       this.roomBadgeText.textContent = `SALA: ${roomId}`;
-      this.showToast('Conectado à partida!', 'success');
+      this.showToast('Conectado à partida! Sincronizando mesa...', 'success');
+      this.triggerEventBanner('CONECTADO!', `Sincronizando mesa com o criador da sala...`);
     } catch (err) {
       this.showToast(`Falha ao conectar: ${err.message}`, 'error');
     }
   }
 
-  setupEngineAndBots(numPlayers, playerConfigs) {
+  setupEngineAndBots(numPlayers, playerConfigs, autoStart = true) {
     this.engine = new TrucoEngine({ numPlayers });
     this.engine.initPlayers(playerConfigs);
 
@@ -333,7 +366,11 @@ class TrucoApp {
     }
 
     this.renderSeats();
-    this.startRoundHand();
+    if (autoStart) {
+      this.startRoundHand();
+    } else {
+      this.triggerEventBanner('SALA ABERTA!', `Aguardando jogadores entrarem (código: ${this.roomConfig.id})...`);
+    }
   }
 
   // ==========================================
@@ -342,17 +379,21 @@ class TrucoApp {
 
   renderSeats() {
     this.seatsContainer.innerHTML = '';
+    if (!this.engine || !this.engine.players) return;
     const numPlayers = this.engine.numPlayers;
     this.table.className = `truco-arena layout-${numPlayers}`;
 
     for (let i = 0; i < numPlayers; i++) {
       const player = this.engine.players[i];
+      if (!player) continue;
       const isMe = (i === this.myPlayerIndex);
+      const relPos = (i - this.myPlayerIndex + numPlayers) % numPlayers;
       const seat = document.createElement('div');
-      seat.className = `player-seat seat-${i} team-${player.team}`;
+      seat.className = `player-seat seat-${i} seat-pos-${relPos} team-${player.team}`;
       seat.id = `seat-${i}`;
 
-      const avatarLetter = player.name.charAt(0).toUpperCase();
+      const avatarLetter = (player.name && player.name.trim().length > 0) ? player.name.trim().charAt(0).toUpperCase() : '?';
+      const cardCount = player.hand ? player.hand.length : 3;
 
       seat.innerHTML = `
         <div class="chat-shout-bubble" id="speech-${i}" style="display: none;"></div>
@@ -363,9 +404,7 @@ class TrucoApp {
         <div class="seat-tag">${player.name}</div>
         ${!isMe ? `
           <div class="seat-hand-mini" id="seatBacks-${i}">
-            <div class="mini-card"></div>
-            <div class="mini-card"></div>
-            <div class="mini-card"></div>
+            ${Array.from({ length: cardCount }).map(() => '<div class="mini-card"></div>').join('')}
           </div>
         ` : ''}
       `;
@@ -377,6 +416,7 @@ class TrucoApp {
   startRoundHand() {
     const handState = this.engine.startNewHand();
     window.TrucoAudio.playCardSlide();
+    this.stopTurnTimer();
 
     // Limpa a mesa de descarte mantendo o label
     this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
@@ -508,8 +548,15 @@ class TrucoApp {
   }
 
   updateScoreboard() {
-    this.scoreTeam0.textContent = this.engine.scores[0];
-    this.scoreTeam1.textContent = this.engine.scores[1];
+    if (!this.engine) return;
+    const myPlayer = (this.engine.players && this.engine.players[this.myPlayerIndex]) ? this.engine.players[this.myPlayerIndex] : null;
+    const myTeam = myPlayer ? myPlayer.team : 0;
+    const oppTeam = 1 - myTeam;
+
+    // NÓS sempre mostra a pontuação da equipe do jogador atual
+    this.scoreTeam0.textContent = (this.engine.scores && this.engine.scores[myTeam] !== undefined) ? this.engine.scores[myTeam] : 0;
+    // ELES sempre mostra a pontuação da equipe adversária
+    this.scoreTeam1.textContent = (this.engine.scores && this.engine.scores[oppTeam] !== undefined) ? this.engine.scores[oppTeam] : 0;
 
     const currentStage = TrucoConstants.BET_STAGES.find(s => s.value === this.engine.currentStake);
     const stakeText = currentStage ? currentStage.label.toUpperCase() : `${this.engine.currentStake} PONTOS`;
@@ -517,16 +564,17 @@ class TrucoApp {
 
     this.trickDots.forEach((dot, idx) => {
       dot.className = 'trick-pip';
-      if (idx < this.engine.roundWinners.length) {
+      if (this.engine.roundWinners && idx < this.engine.roundWinners.length) {
         const winner = this.engine.roundWinners[idx];
-        if (winner === 0) dot.classList.add('won-nos');
-        else if (winner === 1) dot.classList.add('won-eles');
-        else dot.classList.add('tie');
+        if (winner === myTeam) dot.classList.add('won-nos');
+        else if (winner === oppTeam) dot.classList.add('won-eles');
+        else if (winner === -1) dot.classList.add('tie');
       }
     });
   }
 
   updateDealerAndTurnHighlights() {
+    if (!this.engine) return;
     for (let i = 0; i < this.engine.numPlayers; i++) {
       const seat = document.getElementById(`seat-${i}`);
       const dealerBadge = document.getElementById(`dealerBadge-${i}`);
@@ -540,12 +588,15 @@ class TrucoApp {
   }
 
   updateActionButtons() {
+    if (!this.engine || !this.engine.players || !this.engine.players[this.myPlayerIndex]) return;
     const myTeam = this.engine.players[this.myPlayerIndex].team;
     const currentStage = TrucoConstants.BET_STAGES.find(s => s.value === this.engine.currentStake);
     const canRequestBet = (
       !this.engine.pendingBet &&
       !this.engine.isMaoDeOnze &&
       !this.engine.isMaoDeFerro &&
+      !this.engine.handOver &&
+      !this.engine.gameOver &&
       this.engine.lastBettorTeam !== myTeam &&
       currentStage && currentStage.nextValue !== null
     );
@@ -555,7 +606,7 @@ class TrucoApp {
       this.btnTruco.textContent = `Pedir ${currentStage.nextLabel}!`;
     }
 
-    this.btnCoverToggle.style.display = (this.engine.currentRound > 0 && !this.engine.isMaoDeFerro) ? 'flex' : 'none';
+    this.btnCoverToggle.style.display = (this.engine.currentRound > 0 && !this.engine.isMaoDeFerro && !this.engine.handOver) ? 'flex' : 'none';
   }
 
   // ==========================================
@@ -563,58 +614,70 @@ class TrucoApp {
   // ==========================================
 
   handlePlayCard(cardId) {
+    if (!this.engine) return;
     if (this.engine.currentTurnIndex !== this.myPlayerIndex) {
       this.showToast('Aguarde a sua vez de jogar!', 'warning');
       return;
     }
-
-    const isCovered = this.coverNextCard;
-    const res = this.engine.playCard(this.myPlayerIndex, cardId, isCovered);
-
-    if (res.error) {
-      this.showToast(res.error, 'warning');
+    if (this.engine.pendingBet) {
+      this.showToast('Responda ao pedido de Truco antes de jogar!', 'warning');
       return;
     }
 
+    this.stopTurnTimer();
+
+    const isCovered = this.coverNextCard;
     this.coverNextCard = false;
     this.btnCoverToggle.classList.remove('active');
 
-    window.TrucoAudio.playCardSlide();
-    this.renderCardOnTable(res.played);
-    this.renderMyHand();
-    this.updateDealerAndTurnHighlights();
-    this.updateActionButtons();
+    // Se for Solo ou Host, executa no motor local
+    if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      const res = this.engine.playCard(this.myPlayerIndex, cardId, isCovered);
 
-    if (!this.isSinglePlayer && this.network) {
-      const playMsg = {
-        type: 'CARD_PLAYED',
-        playerIndex: this.myPlayerIndex,
+      if (res.error) {
+        this.showToast(res.error, 'warning');
+        return;
+      }
+
+      window.TrucoAudio.playCardSlide();
+      this.renderCardOnTable(res.played);
+      this.renderMyHand();
+      this.updateDealerAndTurnHighlights();
+      this.updateActionButtons();
+
+      if (!this.isSinglePlayer && this.network && this.network.isHost) {
+        this.network.broadcast({
+          type: 'CARD_PLAYED_EVENT',
+          played: res.played,
+          vasaComplete: res.vasaComplete,
+          vasaResult: res.vasaResult,
+          nextTurnIndex: res.nextTurnIndex
+        });
+        this.syncGameStateToClients();
+      }
+
+      if (res.vasaComplete) {
+        this.handleVasaComplete(res.vasaResult);
+      } else {
+        this.checkNextTurnAction();
+      }
+    } else {
+      // Cliente conectado: envia a intenção de jogada para o Host validar
+      this.network.sendToHost({
+        type: 'CLIENT_PLAY_CARD',
         cardId: cardId,
         isCovered: isCovered
-      };
-      if (this.network.isHost) {
-        this.network.broadcast(playMsg);
-      } else {
-        this.network.sendToHost(playMsg);
-      }
-    }
-
-    if (res.vasaComplete) {
-      this.handleVasaComplete(res.vasaResult);
-    } else {
-      this.checkNextTurnAction();
+      });
     }
   }
 
   renderCardOnTable(playedRecord) {
-    // Remove o placeholder se houver
     const placeholder = this.trickDropzone.querySelector('.trick-tabletop-label');
     if (placeholder) placeholder.style.display = 'none';
 
     const cardEl = this.createCardElement(playedRecord.card, playedRecord.isCovered);
     cardEl.classList.add('played-trick-card');
 
-    // Adiciona o selo com o nome de quem jogou
     const authorPill = document.createElement('div');
     authorPill.className = 'played-card-author';
     authorPill.textContent = playedRecord.playerName;
@@ -626,6 +689,14 @@ class TrucoApp {
     cardEl.style.transform = `translateX(${offsetX}px) rotate(${randomRot}deg)`;
 
     this.trickDropzone.appendChild(cardEl);
+  }
+
+  renderTableCards(cards = []) {
+    this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
+    if (!cards || cards.length === 0) return;
+    cards.forEach(record => {
+      this.renderCardOnTable(record);
+    });
   }
 
   handleVasaComplete(vasaResult) {
@@ -645,13 +716,18 @@ class TrucoApp {
         this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
         this.updateDealerAndTurnHighlights();
         this.updateActionButtons();
-        this.checkNextTurnAction();
+        if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+          this.checkNextTurnAction();
+        }
       }, 1500);
     }
   }
 
   handleHandFinished(handSummary) {
-    const isMyTeamWinner = (handSummary.winningTeam === this.engine.players[this.myPlayerIndex].team);
+    if (!this.engine || !this.engine.players) return;
+    this.stopTurnTimer();
+    const myPlayer = this.engine.players[this.myPlayerIndex];
+    const isMyTeamWinner = (myPlayer && handSummary.winningTeam === myPlayer.team);
     const points = this.engine.currentStake;
 
     if (isMyTeamWinner) {
@@ -663,7 +739,7 @@ class TrucoApp {
 
     if (this.engine.gameOver) {
       setTimeout(() => {
-        const isChamp = (this.engine.winningTeam === this.engine.players[this.myPlayerIndex].team);
+        const isChamp = (myPlayer && this.engine.winningTeam === myPlayer.team);
         this.triggerEventBanner(
           isChamp ? 'CAMPEÕES DA PARTIDA!' : 'FIM DE JOGO!',
           isChamp ? 'Parabéns! Vocês fecharam os 12 pontos!' : 'A equipe adversária fechou os 12 pontos.'
@@ -672,9 +748,12 @@ class TrucoApp {
       return;
     }
 
-    setTimeout(() => {
-      this.startRoundHand();
-    }, 2500);
+    // Apenas o Host ou partida solo inicia a próxima mão
+    if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      setTimeout(() => {
+        this.startRoundHand();
+      }, 2500);
+    }
   }
 
   // ==========================================
@@ -682,41 +761,51 @@ class TrucoApp {
   // ==========================================
 
   handlePlayerRequestBet() {
-    const res = this.engine.requestBet(this.myPlayerIndex);
-    if (res.error) {
-      this.showToast(res.error, 'warning');
-      return;
-    }
+    if (!this.engine) return;
 
-    window.TrucoAudio.playTableThump();
-    this.table.classList.add('thump-active');
-    setTimeout(() => this.table.classList.remove('thump-active'), 400);
-
-    const label = res.pendingBet.targetLabel;
-    this.sendSpeechBubble(this.myPlayerIndex, `${label.toUpperCase()}! 🔥`);
-    this.triggerEventBanner(`${label.toUpperCase()}!`, `${this.engine.players[this.myPlayerIndex].name} pediu ${label}!`);
-
-    this.updateActionButtons();
-
-    if (!this.isSinglePlayer && this.network) {
-      const msg = { type: 'BET_REQUEST', playerIndex: this.myPlayerIndex };
-      if (this.network.isHost) {
-        this.network.broadcast(msg);
-      } else {
-        this.network.sendToHost(msg);
+    if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      const res = this.engine.requestBet(this.myPlayerIndex);
+      if (res.error) {
+        this.showToast(res.error, 'warning');
+        return;
       }
-    }
 
-    this.checkBotBetResponse();
+      window.TrucoAudio.playTableThump();
+      this.table.classList.add('thump-active');
+      setTimeout(() => this.table.classList.remove('thump-active'), 400);
+
+      const label = res.pendingBet.targetLabel;
+      this.sendSpeechBubble(this.myPlayerIndex, `${label.toUpperCase()}! 🔥`);
+      this.triggerEventBanner(`${label.toUpperCase()}!`, `${this.engine.players[this.myPlayerIndex].name} pediu ${label}!`);
+      this.updateActionButtons();
+
+      if (!this.isSinglePlayer && this.network && this.network.isHost) {
+        this.network.broadcast({
+          type: 'BET_REQUEST_EVENT',
+          playerIndex: this.myPlayerIndex,
+          pendingBet: res.pendingBet
+        });
+        this.syncGameStateToClients();
+      }
+
+      this.checkBotBetResponse();
+    } else {
+      // Cliente envia pedido ao Host
+      this.network.sendToHost({
+        type: 'CLIENT_REQUEST_BET'
+      });
+    }
   }
 
   showBetResponseUI(pendingBet) {
+    if (!this.engine || !this.engine.players || !this.engine.players[this.myPlayerIndex]) return;
     const myTeam = this.engine.players[this.myPlayerIndex].team;
     if (pendingBet.requestedByTeam === myTeam) {
       this.betResponseBar.style.display = 'none';
       return;
     }
 
+    this.stopTurnTimer();
     this.betResponseBar.style.display = 'flex';
     this.betNoticeText.textContent = `PEDIRAM ${pendingBet.targetLabel.toUpperCase()}!`;
 
@@ -730,21 +819,36 @@ class TrucoApp {
   }
 
   handlePlayerRespondBet(action) {
-    const res = this.engine.respondBet(this.myPlayerIndex, action);
+    if (!this.engine) return;
+
+    if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      this.executeBetResponse(this.myPlayerIndex, action);
+    } else {
+      this.betResponseBar.style.display = 'none';
+      this.network.sendToHost({
+        type: 'CLIENT_RESPOND_BET',
+        action: action
+      });
+    }
+  }
+
+  executeBetResponse(playerIndex, action) {
+    const res = this.engine.respondBet(playerIndex, action);
     if (res.error) {
       this.showToast(res.error, 'warning');
       return;
     }
 
     this.betResponseBar.style.display = 'none';
+    const respondingPlayerName = this.engine.players[playerIndex] ? this.engine.players[playerIndex].name : 'Jogador';
 
     if (action === 'refuse') {
-      this.sendSpeechBubble(this.myPlayerIndex, 'Corro! 🏃');
-      this.showToast('Você correu do pedido de aposta.');
+      this.sendSpeechBubble(playerIndex, 'Corro! 🏃');
+      this.triggerEventBanner('FUGIU!', `${respondingPlayerName} correu do pedido de aposta.`);
       this.handleHandFinished({ winningTeam: res.winningTeam });
     } else if (action === 'accept') {
       window.TrucoAudio.playTableThump();
-      this.sendSpeechBubble(this.myPlayerIndex, 'Cai pra dentro! 💪');
+      this.sendSpeechBubble(playerIndex, 'Cai pra dentro! 💪');
       this.triggerEventBanner('ACEITO!', `Mão agora vale ${res.newStake} pontos!`);
       this.updateScoreboard();
       this.updateActionButtons();
@@ -755,48 +859,62 @@ class TrucoApp {
       setTimeout(() => this.table.classList.remove('thump-active'), 400);
 
       const label = res.pendingBet.targetLabel;
-      this.sendSpeechBubble(this.myPlayerIndex, `${label.toUpperCase()}! 🔥`);
-      this.triggerEventBanner(`${label.toUpperCase()}!`, `Aposta aumentada para ${label}!`);
+      this.sendSpeechBubble(playerIndex, `${label.toUpperCase()}! 🔥`);
+      this.triggerEventBanner(`${label.toUpperCase()}!`, `${respondingPlayerName} aumentou para ${label}!`);
       this.updateScoreboard();
       this.updateActionButtons();
+      this.showBetResponseUI(res.pendingBet);
       this.checkBotBetResponse();
     }
 
-    if (!this.isSinglePlayer && this.network) {
-      const msg = { type: 'BET_RESPONSE', playerIndex: this.myPlayerIndex, action: action };
-      if (this.network.isHost) {
-        this.network.broadcast(msg);
-      } else {
-        this.network.sendToHost(msg);
-      }
+    if (!this.isSinglePlayer && this.network && this.network.isHost) {
+      this.network.broadcast({
+        type: 'BET_RESPONSE_EVENT',
+        playerIndex: playerIndex,
+        action: action,
+        newStake: res.newStake,
+        pendingBet: res.pendingBet,
+        winningTeam: res.winningTeam
+      });
+      this.syncGameStateToClients();
     }
   }
 
-  handleMaoDeOnzeDecision(play) {
+  handleMaoDeOnzeDecision(play, playerIndex = this.myPlayerIndex) {
     this.closeModals();
-    const res = this.engine.decideMaoDeOnze(this.myPlayerIndex, play);
-    if (res.error) {
-      this.showToast(res.error, 'warning');
-      return;
-    }
+    if (!this.engine) return;
 
-    if (!play) {
-      this.sendSpeechBubble(this.myPlayerIndex, 'Vamos fugir! 🏃');
-      this.handleHandFinished({ winningTeam: res.winningTeam });
-    } else {
-      this.sendSpeechBubble(this.myPlayerIndex, 'Vamos pro jogo! ⚔️');
-      this.triggerEventBanner('MÃO DE ONZE ACEITA', 'A rodada está valendo 3 pontos!');
-      this.updateScoreboard();
-      this.checkNextTurnAction();
-    }
-
-    if (!this.isSinglePlayer && this.network) {
-      const msg = { type: 'MAO_DE_ONZE_DECISION', playerIndex: this.myPlayerIndex, play: play };
-      if (this.network.isHost) {
-        this.network.broadcast(msg);
-      } else {
-        this.network.sendToHost(msg);
+    if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      const res = this.engine.decideMaoDeOnze(playerIndex, play);
+      if (res.error) {
+        this.showToast(res.error, 'warning');
+        return;
       }
+
+      if (!play) {
+        this.sendSpeechBubble(playerIndex, 'Vamos fugir! 🏃');
+        this.handleHandFinished({ winningTeam: res.winningTeam });
+      } else {
+        this.sendSpeechBubble(playerIndex, 'Vamos pro jogo! ⚔️');
+        this.triggerEventBanner('MÃO DE ONZE ACEITA', 'A rodada está valendo 3 pontos!');
+        this.updateScoreboard();
+        this.checkNextTurnAction();
+      }
+
+      if (!this.isSinglePlayer && this.network && this.network.isHost) {
+        this.network.broadcast({
+          type: 'MAO_DE_ONZE_EVENT',
+          playerIndex: playerIndex,
+          play: play,
+          winningTeam: res.winningTeam
+        });
+        this.syncGameStateToClients();
+      }
+    } else {
+      this.network.sendToHost({
+        type: 'CLIENT_MAO_DE_ONZE',
+        play: play
+      });
     }
   }
 
@@ -805,10 +923,13 @@ class TrucoApp {
   // ==========================================
 
   checkNextTurnAction() {
-    if (this.engine.handOver || this.engine.gameOver) return;
+    if (!this.engine || this.engine.handOver || this.engine.gameOver) return;
 
     const currentIdx = this.engine.currentTurnIndex;
-    const player = this.engine.players[currentIdx];
+    const player = this.engine.players ? this.engine.players[currentIdx] : null;
+    if (!player) return;
+
+    this.stopTurnTimer();
 
     if (player.isBot) {
       const bot = this.bots[currentIdx];
@@ -823,10 +944,18 @@ class TrucoApp {
             setTimeout(() => this.table.classList.remove('thump-active'), 400);
 
             const label = betRes.pendingBet.targetLabel;
-            this.sendSpeechBubble(currentIdx, `${label.toUpperCase()}! 🔥`);
+            this.sendSpeechBubble(currentIdx, `${label.toUpperCase()}!`);
             this.triggerEventBanner(`${label.toUpperCase()}!`, `${player.name} pediu ${label}!`);
-
             this.showBetResponseUI(betRes.pendingBet);
+
+            if (!this.isSinglePlayer && this.network && this.network.isHost) {
+              this.network.broadcast({
+                type: 'BET_REQUEST_EVENT',
+                playerIndex: currentIdx,
+                pendingBet: betRes.pendingBet
+              });
+              this.syncGameStateToClients();
+            }
             return;
           }
         }
@@ -841,6 +970,17 @@ class TrucoApp {
             this.updateDealerAndTurnHighlights();
             this.updateActionButtons();
 
+            if (!this.isSinglePlayer && this.network && this.network.isHost) {
+              this.network.broadcast({
+                type: 'CARD_PLAYED_EVENT',
+                played: res.played,
+                vasaComplete: res.vasaComplete,
+                vasaResult: res.vasaResult,
+                nextTurnIndex: res.nextTurnIndex
+              });
+              this.syncGameStateToClients();
+            }
+
             if (res.vasaComplete) {
               this.handleVasaComplete(res.vasaResult);
             } else {
@@ -849,11 +989,78 @@ class TrucoApp {
           }
         }
       }, 900 + Math.random() * 400);
+    } else if (currentIdx === this.myPlayerIndex) {
+      // Vez do jogador humano local — ativa o timer
+      if (!this.engine.pendingBet && !this.engine.handOver && !this.engine.gameOver) {
+        this.startTurnTimer();
+      }
     }
   }
 
+  // ==========================================
+  // TIMER DE VEZ (30 segundos)
+  // ==========================================
+
+  startTurnTimer() {
+    this.stopTurnTimer();
+    if (!this.turnOverlay) return;
+
+    this._turnTimerRemaining = 30;
+    this.turnOverlay.style.display = 'flex';
+    this._updateTimerArc(30);
+    this.turnCountdown.textContent = '30';
+
+    this._turnTimerInterval = setInterval(() => {
+      this._turnTimerRemaining--;
+      const remaining = this._turnTimerRemaining;
+
+      this.turnCountdown.textContent = remaining;
+      this._updateTimerArc(remaining);
+
+      if (remaining <= 10) {
+        this.timerArc.classList.add('urgent');
+      }
+
+      if (remaining <= 0) {
+        this.stopTurnTimer();
+        this._autoPlayRandomCard();
+      }
+    }, 1000);
+  }
+
+  stopTurnTimer() {
+    if (this._turnTimerInterval) {
+      clearInterval(this._turnTimerInterval);
+      this._turnTimerInterval = null;
+    }
+    if (this.turnOverlay) {
+      this.turnOverlay.style.display = 'none';
+    }
+    if (this.timerArc) {
+      this.timerArc.classList.remove('urgent');
+    }
+  }
+
+  _updateTimerArc(remaining) {
+    if (!this.timerArc) return;
+    const fraction = remaining / 30;
+    const offset = this._timerCircumference * (1 - fraction);
+    this.timerArc.style.strokeDashoffset = offset;
+  }
+
+  _autoPlayRandomCard() {
+    if (!this.engine) return;
+    if (this.engine.currentTurnIndex !== this.myPlayerIndex) return;
+    const myPlayer = this.engine.players[this.myPlayerIndex];
+    if (!myPlayer || !myPlayer.hand || myPlayer.hand.length === 0) return;
+
+    const randomCard = myPlayer.hand[Math.floor(Math.random() * myPlayer.hand.length)];
+    this.showToast('Tempo esgotado! Carta jogada automaticamente.', 'warning');
+    this.handlePlayCard(randomCard.id);
+  }
+
   checkBotBetResponse() {
-    if (!this.engine.pendingBet) return;
+    if (!this.engine || !this.engine.pendingBet) return;
 
     const bet = this.engine.pendingBet;
     const respondingTeam = 1 - bet.requestedByTeam;
@@ -867,50 +1074,19 @@ class TrucoApp {
     const bot = this.bots[botIdx];
     setTimeout(() => {
       const action = bot.decideBetResponse();
-      const res = this.engine.respondBet(botIdx, action);
-
-      if (action === 'refuse') {
-        this.sendSpeechBubble(botIdx, 'Deixa quieto, é sua! 🏃');
-        this.handleHandFinished({ winningTeam: res.winningTeam });
-      } else if (action === 'accept') {
-        window.TrucoAudio.playTableThump();
-        this.sendSpeechBubble(botIdx, 'Pode vir quente! 🔥');
-        this.triggerEventBanner('ACEITO!', `Mão agora vale ${res.newStake} pontos!`);
-        this.updateScoreboard();
-        this.updateActionButtons();
-        this.checkNextTurnAction();
-      } else if (action === 'raise') {
-        window.TrucoAudio.playTableThump();
-        this.table.classList.add('thump-active');
-        setTimeout(() => this.table.classList.remove('thump-active'), 400);
-
-        const label = res.pendingBet.targetLabel;
-        this.sendSpeechBubble(botIdx, `${label.toUpperCase()}! 🔥`);
-        this.triggerEventBanner(`${label.toUpperCase()}!`, `${this.engine.players[botIdx].name} aumentou para ${label}!`);
-        this.updateScoreboard();
-        this.updateActionButtons();
-        this.showBetResponseUI(res.pendingBet);
-      }
+      this.executeBetResponse(botIdx, action);
     }, 1100);
   }
 
   checkBotMaoDeOnzeDecision(team) {
+    if (!this.engine) return;
     const botIdx = this.engine.players.findIndex(p => p.team === team && p.isBot);
     if (botIdx === -1) return;
 
     const bot = this.bots[botIdx];
     setTimeout(() => {
       const willPlay = bot.decideMaoDeOnze();
-      const res = this.engine.decideMaoDeOnze(botIdx, willPlay);
-      if (!willPlay) {
-        this.sendSpeechBubble(botIdx, 'Mão muito ruim, vaza! 🏃');
-        this.handleHandFinished({ winningTeam: res.winningTeam });
-      } else {
-        this.sendSpeechBubble(botIdx, 'Bora pro jogo! ⚔️');
-        this.triggerEventBanner('MÃO DE ONZE ACEITA', 'Os adversários resolveram encarar!');
-        this.updateScoreboard();
-        this.checkNextTurnAction();
-      }
+      this.handleMaoDeOnzeDecision(willPlay, botIdx);
     }, 1300);
   }
 
@@ -919,81 +1095,323 @@ class TrucoApp {
   // ==========================================
 
   handleNetworkPlayerJoined(peer) {
+    if (!this.engine) return;
+    let replacedIndex = -1;
+
+    // 1. Procura slot 'Aguardando'
     for (let i = 1; i < this.engine.numPlayers; i++) {
-      if (this.engine.players[i].isBot || this.engine.players[i].name.startsWith('Aguardando')) {
-        this.engine.players[i].name = peer.name;
-        this.engine.players[i].id = peer.peerId;
-        this.engine.players[i].isBot = false;
-        this.bots[i] = null;
+      if (this.engine.players[i].name.startsWith('Aguardando')) {
+        replacedIndex = i;
         break;
       }
     }
-    this.renderSeats();
-    this.syncGameStateToClients();
+
+    // 2. Se não houver, procura slot de bot
+    if (replacedIndex === -1) {
+      for (let i = 1; i < this.engine.numPlayers; i++) {
+        if (this.engine.players[i].isBot) {
+          replacedIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (replacedIndex !== -1) {
+      this.engine.players[replacedIndex].name = peer.name;
+      this.engine.players[replacedIndex].id = peer.peerId;
+      this.engine.players[replacedIndex].isBot = false;
+      this.bots[replacedIndex] = null;
+    }
+
+    const hasWaitingSlots = this.engine.players.some(p => p.name.startsWith('Aguardando'));
+    if (!this.engine.vira && !hasWaitingSlots) {
+      this.startRoundHand();
+    } else {
+      this.renderSeats();
+      this.syncGameStateToClients();
+    }
+
+    const joinText = `${peer.name} entrou na mesa!`;
+    this.showToast(joinText, 'success');
+    this.network.broadcast({
+      type: 'TOAST',
+      message: joinText,
+      toastType: 'success'
+    });
+  }
+
+  handleNetworkPlayerLeft(peerId) {
+    if (!this.engine) return;
+    const idx = this.engine.players.findIndex(p => p.id === peerId);
+    if (idx !== -1) {
+      const pName = this.engine.players[idx].name;
+      this.engine.players[idx].name = `Bot ${idx}`;
+      this.engine.players[idx].isBot = true;
+      this.bots[idx] = new TrucoBot(idx, this.engine);
+      this.renderSeats();
+      this.syncGameStateToClients();
+
+      const disconnectText = `${pName} se desconectou. Um Bot assumiu a vaga.`;
+      this.showToast(disconnectText, 'warning');
+      this.network.broadcast({
+        type: 'TOAST',
+        message: disconnectText,
+        toastType: 'warning'
+      });
+
+      if (this.engine.currentTurnIndex === idx) {
+        this.checkNextTurnAction();
+      }
+    }
   }
 
   handleNetworkMessage(data, fromPeerId = null) {
-    if (data.type === 'CHAT') {
+    if (!data || !data.type) return;
+
+    if (data.type === 'TOAST') {
+      this.showToast(data.message, data.toastType || 'info');
+    } else if (data.type === 'CHAT') {
       this.sendSpeechBubble(data.playerIndex, data.text);
       window.TrucoAudio.playNotification();
-    } else if (data.type === 'CARD_PLAYED') {
-      const res = this.engine.playCard(data.playerIndex, data.cardId, data.isCovered);
-      if (!res.error) {
-        window.TrucoAudio.playCardSlide();
-        this.renderCardOnTable(res.played);
-        this.renderMyHand();
-        this.updateDealerAndTurnHighlights();
-        this.updateActionButtons();
-        if (res.vasaComplete) {
-          this.handleVasaComplete(res.vasaResult);
-        } else {
-          this.checkNextTurnAction();
+      if (this.network && this.network.isHost) {
+        this.network.broadcast(data);
+      }
+    } else if (data.type === 'CLIENT_PLAY_CARD') {
+      if (!this.network || !this.network.isHost || !this.engine) return;
+      const fromIdx = this.engine.players.findIndex(p => p.id === fromPeerId);
+      if (fromIdx === -1 || fromIdx !== this.engine.currentTurnIndex) return;
+
+      const res = this.engine.playCard(fromIdx, data.cardId, data.isCovered);
+      if (res.error) {
+        this.network.sendToPeer(fromPeerId, { type: 'ACTION_ERROR', message: res.error });
+        return;
+      }
+
+      window.TrucoAudio.playCardSlide();
+      this.renderCardOnTable(res.played);
+      this.renderMyHand();
+      this.updateDealerAndTurnHighlights();
+      this.updateActionButtons();
+
+      this.network.broadcast({
+        type: 'CARD_PLAYED_EVENT',
+        played: res.played,
+        vasaComplete: res.vasaComplete,
+        vasaResult: res.vasaResult,
+        nextTurnIndex: res.nextTurnIndex
+      });
+      this.syncGameStateToClients();
+
+      if (res.vasaComplete) {
+        this.handleVasaComplete(res.vasaResult);
+      } else {
+        this.checkNextTurnAction();
+      }
+    } else if (data.type === 'CARD_PLAYED_EVENT') {
+      window.TrucoAudio.playCardSlide();
+      this.renderCardOnTable(data.played);
+
+      if (data.played.playerIndex === this.myPlayerIndex) {
+        const myHand = this.engine.players[this.myPlayerIndex].hand;
+        const cardIdx = myHand.findIndex(c => c.id === data.played.card.id);
+        if (cardIdx !== -1) myHand.splice(cardIdx, 1);
+      } else {
+        const otherPlayer = this.engine.players[data.played.playerIndex];
+        if (otherPlayer && otherPlayer.hand && otherPlayer.hand.length > 0) {
+          otherPlayer.hand.pop();
         }
       }
-    } else if (data.type === 'BET_REQUEST') {
-      const res = this.engine.requestBet(data.playerIndex);
-      if (!res.error) {
-        window.TrucoAudio.playTableThump();
-        const label = res.pendingBet.targetLabel;
-        this.sendSpeechBubble(data.playerIndex, `${label.toUpperCase()}! 🔥`);
-        this.triggerEventBanner(`${label.toUpperCase()}!`, `Pedido de ${label}!`);
-        this.showBetResponseUI(res.pendingBet);
+      this.renderMyHand();
+
+      if (data.vasaComplete) {
+        this.handleVasaComplete(data.vasaResult);
+      } else {
+        this.engine.currentTurnIndex = data.nextTurnIndex;
+        this.updateDealerAndTurnHighlights();
+        this.updateActionButtons();
       }
-    } else if (data.type === 'BET_RESPONSE') {
-      this.handlePlayerRespondBet(data.action);
+    } else if (data.type === 'CLIENT_REQUEST_BET') {
+      if (!this.network || !this.network.isHost || !this.engine) return;
+      const fromIdx = this.engine.players.findIndex(p => p.id === fromPeerId);
+      if (fromIdx === -1) return;
+
+      const res = this.engine.requestBet(fromIdx);
+      if (res.error) {
+        this.network.sendToPeer(fromPeerId, { type: 'ACTION_ERROR', message: res.error });
+        return;
+      }
+
+      window.TrucoAudio.playTableThump();
+      this.table.classList.add('thump-active');
+      setTimeout(() => this.table.classList.remove('thump-active'), 400);
+
+      const label = res.pendingBet.targetLabel;
+      this.sendSpeechBubble(fromIdx, `${label.toUpperCase()}! 🔥`);
+      this.triggerEventBanner(`${label.toUpperCase()}!`, `${this.engine.players[fromIdx].name} pediu ${label}!`);
+      this.updateActionButtons();
+      this.showBetResponseUI(res.pendingBet);
+
+      this.network.broadcast({
+        type: 'BET_REQUEST_EVENT',
+        playerIndex: fromIdx,
+        pendingBet: res.pendingBet
+      });
+      this.syncGameStateToClients();
+      this.checkBotBetResponse();
+    } else if (data.type === 'BET_REQUEST_EVENT') {
+      window.TrucoAudio.playTableThump();
+      this.table.classList.add('thump-active');
+      setTimeout(() => this.table.classList.remove('thump-active'), 400);
+
+      const pName = this.engine.players[data.playerIndex] ? this.engine.players[data.playerIndex].name : 'Jogador';
+      const label = data.pendingBet.targetLabel;
+      this.sendSpeechBubble(data.playerIndex, `${label.toUpperCase()}! 🔥`);
+      this.triggerEventBanner(`${label.toUpperCase()}!`, `${pName} pediu ${label}!`);
+      this.engine.pendingBet = data.pendingBet;
+      this.updateActionButtons();
+      this.showBetResponseUI(data.pendingBet);
+    } else if (data.type === 'CLIENT_RESPOND_BET') {
+      if (!this.network || !this.network.isHost || !this.engine) return;
+      const fromIdx = this.engine.players.findIndex(p => p.id === fromPeerId);
+      if (fromIdx === -1) return;
+      this.executeBetResponse(fromIdx, data.action);
+    } else if (data.type === 'BET_RESPONSE_EVENT') {
+      this.betResponseBar.style.display = 'none';
+      const pName = this.engine.players[data.playerIndex] ? this.engine.players[data.playerIndex].name : 'Jogador';
+
+      if (data.action === 'refuse') {
+        this.sendSpeechBubble(data.playerIndex, 'Corro! 🏃');
+        this.triggerEventBanner('FUGIU!', `${pName} correu do pedido de aposta.`);
+        this.handleHandFinished({ winningTeam: data.winningTeam });
+      } else if (data.action === 'accept') {
+        window.TrucoAudio.playTableThump();
+        this.sendSpeechBubble(data.playerIndex, 'Cai pra dentro! 💪');
+        this.triggerEventBanner('ACEITO!', `Mão agora vale ${data.newStake} pontos!`);
+        this.engine.currentStake = data.newStake;
+        this.engine.pendingBet = null;
+        this.updateScoreboard();
+        this.updateActionButtons();
+      } else if (data.action === 'raise') {
+        window.TrucoAudio.playTableThump();
+        this.table.classList.add('thump-active');
+        setTimeout(() => this.table.classList.remove('thump-active'), 400);
+
+        const label = data.pendingBet.targetLabel;
+        this.sendSpeechBubble(data.playerIndex, `${label.toUpperCase()}! 🔥`);
+        this.triggerEventBanner(`${label.toUpperCase()}!`, `${pName} aumentou para ${label}!`);
+        this.engine.pendingBet = data.pendingBet;
+        this.updateScoreboard();
+        this.updateActionButtons();
+        this.showBetResponseUI(data.pendingBet);
+      }
+    } else if (data.type === 'CLIENT_MAO_DE_ONZE') {
+      if (!this.network || !this.network.isHost || !this.engine) return;
+      const fromIdx = this.engine.players.findIndex(p => p.id === fromPeerId);
+      if (fromIdx === -1) return;
+      this.handleMaoDeOnzeDecision(data.play, fromIdx);
+    } else if (data.type === 'MAO_DE_ONZE_EVENT') {
+      const pName = this.engine.players[data.playerIndex] ? this.engine.players[data.playerIndex].name : 'Equipe';
+      if (!data.play) {
+        this.sendSpeechBubble(data.playerIndex, 'Vamos fugir! 🏃');
+        this.handleHandFinished({ winningTeam: data.winningTeam });
+      } else {
+        this.sendSpeechBubble(data.playerIndex, 'Vamos pro jogo! ⚔️');
+        this.triggerEventBanner('MÃO DE ONZE ACEITA', `${pName} decidiu encarar a mão!`);
+        this.updateScoreboard();
+        this.updateActionButtons();
+      }
+    } else if (data.type === 'ACTION_ERROR') {
+      this.showToast(data.message, 'warning');
     } else if (data.type === 'STATE_SYNC') {
-      this.engine.scores = data.scores;
+      if (!this.engine) {
+        this.engine = new TrucoEngine({ numPlayers: data.numPlayers });
+      }
+
+      this.engine.numPlayers = data.numPlayers;
+      this.myPlayerIndex = data.assignedIndex;
+      this.engine.scores = [...data.scores];
       this.engine.currentStake = data.currentStake;
       this.engine.vira = data.vira;
       this.engine.manilhaRank = data.manilhaRank;
       this.engine.dealerIndex = data.dealerIndex;
       this.engine.currentTurnIndex = data.currentTurnIndex;
-      this.myPlayerIndex = data.assignedIndex;
+      this.engine.handStarterIndex = data.handStarterIndex;
+      this.engine.currentRound = data.currentRound || 0;
+      this.engine.roundWinners = [...(data.roundWinners || [])];
+      this.engine.roundCards = data.roundCards || [];
+      this.engine.pendingBet = data.pendingBet || null;
+      this.engine.lastBettorTeam = data.lastBettorTeam;
+      this.engine.isMaoDeOnze = !!data.isMaoDeOnze;
+      this.engine.maoDeOnzeTeam = data.maoDeOnzeTeam;
+      this.engine.isMaoDeFerro = !!data.isMaoDeFerro;
+      this.engine.handOver = !!data.handOver;
+      this.engine.gameOver = !!data.gameOver;
+      this.engine.winningTeam = data.winningTeam;
+
+      if (data.players) {
+        this.engine.players = data.players.map(p => ({
+          index: p.index,
+          id: p.id,
+          name: p.name,
+          team: p.team,
+          isBot: p.isBot,
+          hand: (p.index === this.myPlayerIndex) ? (data.myHand || []) : new Array(p.cardCount || 0).fill({})
+        }));
+      }
 
       this.updateScoreboard();
       this.renderSeats();
       this.renderViraCard();
       this.renderMyHand();
+      this.renderTableCards(this.engine.roundCards);
       this.updateDealerAndTurnHighlights();
       this.updateActionButtons();
+
+      if (this.engine.pendingBet) {
+        this.showBetResponseUI(this.engine.pendingBet);
+      } else {
+        this.betResponseBar.style.display = 'none';
+      }
     }
   }
 
   syncGameStateToClients() {
-    if (!this.network || !this.network.isHost) return;
+    if (!this.network || !this.network.isHost || !this.engine) return;
 
     this.network.connections.forEach((conn, peerId) => {
       const pIdx = this.engine.players.findIndex(p => p.id === peerId);
-      if (pIdx !== -1) {
+      if (pIdx !== -1 && conn.open) {
         conn.send({
           type: 'STATE_SYNC',
           assignedIndex: pIdx,
+          numPlayers: this.engine.numPlayers,
           scores: [...this.engine.scores],
           currentStake: this.engine.currentStake,
           vira: this.engine.vira,
           manilhaRank: this.engine.manilhaRank,
           dealerIndex: this.engine.dealerIndex,
-          currentTurnIndex: this.engine.currentTurnIndex
+          currentTurnIndex: this.engine.currentTurnIndex,
+          handStarterIndex: this.engine.handStarterIndex,
+          currentRound: this.engine.currentRound,
+          roundWinners: [...this.engine.roundWinners],
+          roundCards: this.engine.roundCards || [],
+          players: this.engine.players.map(p => ({
+            index: p.index,
+            id: p.id,
+            name: p.name,
+            team: p.team,
+            isBot: p.isBot,
+            cardCount: (p.hand ? p.hand.length : 0)
+          })),
+          myHand: (this.engine.players[pIdx] && this.engine.players[pIdx].hand) ? [...this.engine.players[pIdx].hand] : [],
+          pendingBet: this.engine.pendingBet,
+          lastBettorTeam: this.engine.lastBettorTeam,
+          isMaoDeOnze: this.engine.isMaoDeOnze,
+          maoDeOnzeTeam: this.engine.maoDeOnzeTeam,
+          isMaoDeFerro: this.engine.isMaoDeFerro,
+          handOver: this.engine.handOver,
+          gameOver: this.engine.gameOver,
+          winningTeam: this.engine.winningTeam
         });
       }
     });
@@ -1033,6 +1451,124 @@ class TrucoApp {
       toast.style.transform = 'translateY(-10px)';
       setTimeout(() => toast.remove(), 300);
     }, 3200);
+  }
+
+  // ==========================================
+  // CHAT DE TEXTO
+  // ==========================================
+
+  toggleChatPanel() {
+    if (this._chatOpen) {
+      this.closeChatPanel();
+    } else {
+      this.openChatPanel();
+    }
+  }
+
+  openChatPanel() {
+    this._chatOpen = true;
+    this.chatPanel.classList.add('is-open');
+    this._chatUnread = 0;
+    this.chatUnreadBadge.style.display = 'none';
+    // Scroll para baixo
+    setTimeout(() => {
+      this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+      this.chatInput.focus();
+    }, 260);
+  }
+
+  closeChatPanel() {
+    this._chatOpen = false;
+    this.chatPanel.classList.remove('is-open');
+  }
+
+  /**
+   * Adiciona uma mensagem no painel de chat.
+   * @param {'mine'|'other'|'system'} side  - quem enviou
+   * @param {string} author                 - nome do jogador
+   * @param {string} text                   - conteúdo
+   */
+  addChatMessage(side, author, text) {
+    const msg = document.createElement('div');
+    msg.className = `chat-msg ${side}`;
+
+    if (side !== 'system') {
+      const authorEl = document.createElement('div');
+      authorEl.className = 'chat-msg-author';
+      authorEl.textContent = author;
+      msg.appendChild(authorEl);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-msg-bubble';
+    bubble.textContent = text;
+    msg.appendChild(bubble);
+
+    this.chatMessages.appendChild(msg);
+    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+
+    // Badge de não lida quando painel está fechado
+    if (!this._chatOpen && side !== 'system') {
+      this._chatUnread++;
+      this.chatUnreadBadge.style.display = 'flex';
+      this.chatUnreadBadge.textContent = this._chatUnread > 9 ? '9+' : this._chatUnread;
+    }
+  }
+
+  handleChatSend() {
+    if (!this.chatInput) return;
+    const text = this.chatInput.value.trim();
+    if (!text) return;
+    this.chatInput.value = '';
+
+    const myName = (this.engine && this.engine.players && this.engine.players[this.myPlayerIndex])
+      ? this.engine.players[this.myPlayerIndex].name
+      : 'Você';
+
+    this.addChatMessage('mine', myName, text);
+    this.sendSpeechBubble(this.myPlayerIndex, text);
+
+    // Multiplayer: broadcast
+    if (!this.isSinglePlayer && this.network) {
+      const msg = { type: 'CHAT_TEXT', playerIndex: this.myPlayerIndex, playerName: myName, text };
+      if (this.network.isHost) {
+        this.network.broadcast(msg);
+      } else {
+        this.network.sendToHost(msg);
+      }
+    } else if (this.isSinglePlayer) {
+      // Bots reagem com chance aleatória
+      this._botChatReaction();
+    }
+  }
+
+  /** Bot responde ao chat do jogador com uma das frases aleatórias */
+  _botChatReaction() {
+    if (!this.engine || !this.bots) return;
+    const botResponses = [
+      'Haha, tá bom!', 'Cala boca e joga!', 'Foco na partida!',
+      'Boa!', 'Tô de olho em você...', 'Vai querer chorar depois!'
+    ];
+    // Escolhe um bot aleatório com 40% de chance
+    if (Math.random() > 0.4) return;
+    const botIndices = Object.keys(this.bots).filter(i => this.bots[i]);
+    if (botIndices.length === 0) return;
+    const idx = parseInt(botIndices[Math.floor(Math.random() * botIndices.length)]);
+    const botName = this.engine.players[idx] ? this.engine.players[idx].name : `Bot ${idx}`;
+    const text = botResponses[Math.floor(Math.random() * botResponses.length)];
+    setTimeout(() => {
+      this.addChatMessage('other', botName, text);
+      this.sendSpeechBubble(idx, text);
+    }, 800 + Math.random() * 1200);
+  }
+
+  /** Bot manda mensagem de chat num evento de jogo (truco, vasa, etc) */
+  _botEventChat(botIndex, text) {
+    if (!this.engine || !this.engine.players[botIndex]) return;
+    const botName = this.engine.players[botIndex].name;
+    setTimeout(() => {
+      this.addChatMessage('other', botName, text);
+    }, 600);
   }
 }
 

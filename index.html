@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Truco Paulista Online - Arena P2P & Bots</title>
-  <meta name="description" content="Jogue Truco Paulista online grátis com amigos ou bots. Salas de 2, 4 e 6 jogadores, sem cadastro, direto no navegador via WebRTC P2P para GitHub Pages.">
-  
+  <title>Truco Paulista — Mesa Online</title>
+  <meta name="description"
+    content="Jogue Truco Paulista online grátis com amigos ou bots. Salas de 2, 4 e 6 jogadores, sem cadastro, direto no navegador via WebRTC P2P para GitHub Pages.">
+
   <!-- CSS -->
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/table.css">
@@ -14,6 +16,7 @@
   <!-- PeerJS WebRTC P2P (Serverless / GitHub Pages Friendly) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
+
 <body>
 
   <!-- Barra Superior (HUD) -->
@@ -22,7 +25,7 @@
       <div class="logo-badge">♠</div>
       <div>
         <span class="logo-text">TRUCO PAULISTA</span>
-        <span class="logo-sub">ARENA</span>
+        <span class="logo-sub">ONLINE</span>
       </div>
     </div>
 
@@ -30,14 +33,16 @@
       <div class="room-pill" id="roomBadge" style="display: none;" title="Clique para copiar o link da sala">
         <span>🔗</span>
         <span id="roomBadgeText">SALA: ----</span>
-        <span class="copy-icon">📋</span>
+        <span class="copy-icon"></span>
       </div>
     </div>
 
     <div class="header-actions">
-      <button class="hud-btn" id="btnToggleAudio" title="Ativar/Desativar Som">🔊 Som</button>
-      <button class="hud-btn" id="btnOpenRules" title="Regras do Truco">📜 Regras</button>
-      <button class="hud-btn" id="btnOpenLobby" title="Menu de Salas">🎮 Salas</button>
+      <button class="hud-btn" id="btnToggleAudio" title="Ativar/Desativar Som">SOM</button>
+      <button class="hud-btn" id="btnOpenRules" title="Regras do Truco">REGRAS</button>
+      <button class="hud-btn" id="btnOpenChat" title="Chat da Mesa" style="position:relative;">CHAT <span
+          class="chat-unread-badge" id="chatUnreadBadge" style="display:none;">!</span></button>
+      <button class="hud-btn" id="btnOpenLobby" title="Menu de Salas">SALAS</button>
     </div>
   </header>
 
@@ -50,12 +55,41 @@
     <div class="banner-subheadline" id="eventBannerSubtitle">Pedido de aposta na mesa</div>
   </div>
 
+  <!-- Overlay de Vez do Jogador com Temporizador -->
+  <div class="turn-overlay" id="turnOverlay" style="display:none;">
+    <div class="turn-overlay-inner">
+      <div class="turn-label">SUA VEZ</div>
+      <div class="turn-timer-ring">
+        <svg class="timer-svg" viewBox="0 0 64 64">
+          <circle class="timer-track" cx="32" cy="32" r="28" />
+          <circle class="timer-fill" id="timerArc" cx="32" cy="32" r="28" />
+        </svg>
+        <span class="turn-countdown" id="turnCountdown">30</span>
+      </div>
+      <div class="turn-hint">Jogue uma carta ou aguarde</div>
+    </div>
+  </div>
+
+  <!-- Painel de Chat -->
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">CHAT DA MESA</span>
+      <button class="chat-panel-close" id="btnCloseChat">&times;</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Digite uma mensagem..." maxlength="80"
+        autocomplete="off">
+      <button class="chat-send-btn" id="btnChatSend">&#9654;</button>
+    </div>
+  </div>
+
   <!-- Viewport do Jogo -->
   <main class="game-viewport">
-    
+
     <!-- Arena Oval com Feltro Verde Esmeralda -->
     <div class="truco-arena layout-4" id="pokerTable">
-      
+
       <!-- Placar de Torneio no Topo da Mesa -->
       <div class="arena-hud">
         <div class="hud-team nos">
@@ -96,27 +130,13 @@
         </div>
       </div>
 
-      <!-- Botão de Provocações Rápidas (Chat Flutuante) -->
-      <div class="floating-chat-trigger">
-        <button class="hud-btn" id="btnQuickChat" style="border-radius: var(--radius-pill); padding: 8px 14px; font-weight: 800; background: rgba(15,23,29,0.9); border-color: rgba(229,184,66,0.4);">
-          💬 Provocar
-        </button>
-        <div class="chat-quick-popover" id="quickChatList">
-          <button class="chat-phrase-btn">Truco, ladrão! 🔥</button>
-          <button class="chat-phrase-btn">Chora cavaco! 🎻</button>
-          <button class="chat-phrase-btn">Caiu na teia! 🕷️</button>
-          <button class="chat-phrase-btn">Boa parceiro! 🤝</button>
-          <button class="chat-phrase-btn">Aqui não passa nada! 🛡️</button>
-          <button class="chat-phrase-btn">Segura o Zap! ⚡</button>
-          <button class="chat-phrase-btn">Foge que é mato! 🏃</button>
-        </div>
-      </div>
+      <!-- (quick-chat removido — use o painel de chat no header) -->
 
     </div>
 
     <!-- Dock Inferior: Estação de Comando do Jogador -->
     <div class="player-command-dock">
-      
+
       <!-- Barra de Resposta de Truco (quando adversário desafia) -->
       <div class="dock-response-box" id="betResponseBar" style="display: none;">
         <span class="response-label" id="betNoticeText">TRUCO!</span>
@@ -127,9 +147,10 @@
 
       <!-- Barra de Ações Normais -->
       <div class="dock-actions-row" id="playerActionBar">
-        <button class="btn-action-truco" id="btnTruco">Pedir Truco!</button>
-        <button class="btn-action-cover" id="btnCoverToggle" style="display: none;" title="Jogar a carta virada para baixo">
-          <span>🙈</span> Encobrir Carta
+        <button class="btn-action-truco" id="btnTruco">PEDIR TRUCO</button>
+        <button class="btn-action-cover" id="btnCoverToggle" style="display: none;"
+          title="Jogar a carta virada para baixo">
+          ENCOBRIR
         </button>
       </div>
 
@@ -143,15 +164,44 @@
   <div class="modal-overlay active" id="lobbyModal">
     <div class="modal-window">
       <div class="modal-header">
-        <h2 class="modal-title">🃏 Truco Paulista Online</h2>
+        <h2 class="modal-title">TRUCO PAULISTA</h2>
       </div>
-      <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 22px; line-height: 1.6;">
-        Jogue com amigos em qualquer lugar via conexão P2P sem cadastro ou banco de dados, ou treine sozinho contra bots inteligentes!
+      <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; line-height: 1.6;">
+        Jogue com amigos via P2P sem cadastro, ou treine contra bots inteligentes.
       </p>
 
-      <button class="btn-cta" id="btnOpenCreateModal" style="margin-bottom: 12px;">Criar Sala Multiplayer</button>
-      <button class="btn-outline" id="btnOpenJoinModal" style="margin-bottom: 12px; margin-top: 0;">Entrar com Código de Sala</button>
-      <button class="btn-outline" id="btnSoloPlay" style="margin-top: 0; border-color: rgba(229, 184, 66, 0.4); color: var(--gold-light);">Jogar Solo com Bots (2x2)</button>
+      <button class="btn-cta" id="btnOpenCreateModal" style="margin-bottom: 10px;">Criar Sala Multiplayer</button>
+      <button class="btn-outline" id="btnOpenJoinModal" style="margin-bottom: 10px; margin-top: 0;">Entrar com Código de
+        Sala</button>
+      <button class="btn-outline" id="btnOpenSoloModal"
+        style="margin-top: 0; border-color: var(--border-accent); color: var(--gold-text);">Jogar Solo com Bots</button>
+    </div>
+  </div>
+
+  <!-- MODAL: Solo (escolha de jogadores) -->
+  <div class="modal-overlay" id="soloModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h2 class="modal-title">Jogar Solo com Bots</h2>
+        <button class="modal-close modal-close-btn">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label>Seu Apelido</label>
+        <input type="text" id="soloPlayerName" class="form-input" placeholder="Ex: Mestre do Truco" value="Você"
+          maxlength="15">
+      </div>
+
+      <div class="form-group">
+        <label>Número de Jogadores na Mesa</label>
+        <div class="segmented-group" id="soloNumPlayers">
+          <button class="segment-btn" data-players="2">2 (1 vs 1)</button>
+          <button class="segment-btn active" data-players="4">4 (2 vs 2)</button>
+          <button class="segment-btn" data-players="6">6 (3 vs 3)</button>
+        </div>
+      </div>
+
+      <button class="btn-cta" id="btnConfirmSolo">Iniciar Partida Solo</button>
     </div>
   </div>
 
@@ -165,7 +215,8 @@
 
       <div class="form-group">
         <label>Seu Apelido</label>
-        <input type="text" id="createPlayerName" class="form-input" placeholder="Ex: Mestre do Truco" value="Jogador 1" maxlength="15">
+        <input type="text" id="createPlayerName" class="form-input" placeholder="Ex: Mestre do Truco" value="Jogador 1"
+          maxlength="15">
       </div>
 
       <div class="form-group">
@@ -179,7 +230,8 @@
 
       <div class="form-group">
         <label>Senha da Sala (Opcional)</label>
-        <input type="password" id="createRoomPassword" class="form-input" placeholder="Deixe em branco para sala aberta" maxlength="20">
+        <input type="password" id="createRoomPassword" class="form-input" placeholder="Deixe em branco para sala aberta"
+          maxlength="20">
       </div>
 
       <div class="form-group">
@@ -203,17 +255,20 @@
 
       <div class="form-group">
         <label>Seu Apelido</label>
-        <input type="text" id="joinPlayerName" class="form-input" placeholder="Ex: Parceiro" value="Amigo" maxlength="15">
+        <input type="text" id="joinPlayerName" class="form-input" placeholder="Ex: Parceiro" value="Amigo"
+          maxlength="15">
       </div>
 
       <div class="form-group">
         <label>Código da Sala (5 letras)</label>
-        <input type="text" id="joinRoomCode" class="form-input" placeholder="Ex: A9BCX" style="text-transform: uppercase;" maxlength="8">
+        <input type="text" id="joinRoomCode" class="form-input" placeholder="Ex: A9BCX"
+          style="text-transform: uppercase;" maxlength="8">
       </div>
 
       <div class="form-group">
         <label>Senha da Sala (se houver)</label>
-        <input type="password" id="joinRoomPassword" class="form-input" placeholder="Senha definida pelo criador" maxlength="20">
+        <input type="password" id="joinRoomPassword" class="form-input" placeholder="Senha definida pelo criador"
+          maxlength="20">
       </div>
 
       <button class="btn-cta" id="btnConfirmJoin">Entrar na Partida</button>
@@ -229,13 +284,16 @@
       <p style="color: var(--text-primary); font-size: 14px; margin-bottom: 14px; line-height: 1.6;">
         Sua equipe atingiu <strong>11 pontos</strong>! Você pode ver suas cartas antes de decidir:
       </p>
-      <ul style="color: var(--text-secondary); font-size: 13px; margin-bottom: 22px; padding-left: 20px; line-height: 1.7;">
+      <ul
+        style="color: var(--text-secondary); font-size: 13px; margin-bottom: 22px; padding-left: 20px; line-height: 1.7;">
         <li>Se <strong>Jogar</strong>: a mão vale <strong>3 pontos</strong>. O Truco é proibido.</li>
         <li>Se <strong>Correr</strong>: o adversário leva <strong>1 ponto</strong> e uma nova mão se inicia.</li>
       </ul>
       <div style="display: flex; gap: 12px;">
         <button class="btn-cta" id="btnMaoDeOnzePlay" style="flex: 1;">Encarar (Jogar)</button>
-        <button class="btn-outline" id="btnMaoDeOnzeRun" style="flex: 1; margin-top: 0; background: rgba(239, 68, 68, 0.15); border-color: var(--team-eles); color: #f87171;">Fugir (Dar 1 Ponto)</button>
+        <button class="btn-outline" id="btnMaoDeOnzeRun"
+          style="flex: 1; margin-top: 0; background: rgba(239, 68, 68, 0.15); border-color: var(--team-eles); color: #f87171;">Fugir
+          (Dar 1 Ponto)</button>
       </div>
     </div>
   </div>
@@ -247,7 +305,7 @@
         <h2 class="modal-title">📜 Regras do Truco Paulista</h2>
         <button class="modal-close modal-close-btn">&times;</button>
       </div>
-      
+
       <div style="font-size: 13px; line-height: 1.7; color: var(--text-secondary);">
         <h3 style="color: var(--gold-light); margin: 12px 0 6px;">1. Força das Cartas Comuns</h3>
         <p>Ordem crescente: <strong>4 &lt; 5 &lt; 6 &lt; 7 &lt; Q &lt; J &lt; K &lt; A &lt; 2 &lt; 3</strong>.</p>
@@ -264,11 +322,15 @@
         </ul>
 
         <h3 style="color: var(--gold-light); margin: 16px 0 6px;">3. Apostas</h3>
-        <p>Normal (1 ponto) ➔ <strong>Truco (3)</strong> ➔ <strong>Seis (6)</strong> ➔ <strong>Nove (9)</strong> ➔ <strong>Doze (12)</strong>.</p>
+        <p>Normal (1 ponto) ➔ <strong>Truco (3)</strong> ➔ <strong>Seis (6)</strong> ➔ <strong>Nove (9)</strong> ➔
+          <strong>Doze (12)</strong>.
+        </p>
 
         <h3 style="color: var(--gold-light); margin: 16px 0 6px;">4. Mão de Onze e Mão de Ferro</h3>
-        <p><strong>Mão de Onze (11 pts):</strong> Parceiros olham suas cartas e decidem se encaram (vale 3) ou fogem (dá 1 ponto ao adversário). Truco proibido.</p>
-        <p><strong>Mão de Ferro (11 x 11):</strong> Todos jogam às cegas, sem ver as próprias cartas. Quem vencer leva o jogo!</p>
+        <p><strong>Mão de Onze (11 pts):</strong> Parceiros olham suas cartas e decidem se encaram (vale 3) ou fogem (dá
+          1 ponto ao adversário). Truco proibido.</p>
+        <p><strong>Mão de Ferro (11 x 11):</strong> Todos jogam às cegas, sem ver as próprias cartas. Quem vencer leva o
+          jogo!</p>
       </div>
     </div>
   </div>
@@ -291,4 +353,5 @@
     });
   </script>
 </body>
+
 </html>
