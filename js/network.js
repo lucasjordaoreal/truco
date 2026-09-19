@@ -225,10 +225,12 @@ class TrucoNetwork {
   }
 
   // Broadcast para todos os clientes conectados (Host → todos)
-  broadcast(message) {
+  broadcast(message, excludePeerId = null) {
     if (!this.isHost) return;
-    for (const [, conn] of this.connections.entries()) {
-      if (conn.open) conn.send(message);
+    for (const [peerId, conn] of this.connections.entries()) {
+      if (peerId !== excludePeerId && conn && conn.open) {
+        conn.send(message);
+      }
     }
   }
 

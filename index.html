@@ -75,13 +75,22 @@
   <div class="chat-panel" id="chatPanel">
     <div class="chat-panel-header">
       <span class="chat-panel-title">CHAT DA MESA</span>
-      <button class="chat-panel-close" id="btnCloseChat">&times;</button>
+      <button class="chat-panel-close" id="btnCloseChat" title="Fechar Chat">&times;</button>
     </div>
     <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-quick-bar" id="chatQuickBar" title="Frases rápidas">
+      <button type="button" class="chat-quick-chip" data-msg="Boa! 👏">Boa! 👏</button>
+      <button type="button" class="chat-quick-chip" data-msg="Truco! 🔥">Truco! 🔥</button>
+      <button type="button" class="chat-quick-chip" data-msg="Cai pra dentro! 👊">Cai pra dentro! 👊</button>
+      <button type="button" class="chat-quick-chip" data-msg="Corro! 🏃">Corro! 🏃</button>
+      <button type="button" class="chat-quick-chip" data-msg="Chora não! 🤫">Chora não! 🤫</button>
+      <button type="button" class="chat-quick-chip" data-msg="Parceiro, confia! 🤝">Confia! 🤝</button>
+      <button type="button" class="chat-quick-chip" data-msg="Essa é nossa! 🏆">Nossa! 🏆</button>
+    </div>
     <div class="chat-input-row">
       <input type="text" id="chatInput" class="chat-input" placeholder="Digite uma mensagem..." maxlength="80"
         autocomplete="off">
-      <button class="chat-send-btn" id="btnChatSend">&#9654;</button>
+      <button class="chat-send-btn" id="btnChatSend" title="Enviar">&#9654;</button>
     </div>
   </div>
 
@@ -571,9 +580,9 @@
   <script src="js/deck.js?v=1.5.0"></script>
   <script src="js/engine.js?v=1.5.0"></script>
   <script src="js/bot.js?v=1.5.0"></script>
-  <script src="js/network.js?v=1.5.0"></script>
+  <script src="js/network.js?v=1.5.2"></script>
   <script src="js/audio.js?v=1.5.0"></script>
-  <script src="js/app.js?v=1.5.1"></script>
+  <script src="js/app.js?v=1.5.2"></script>
 
   <script>
     document.getElementById('btnOpenRules')?.addEventListener('click', () => {

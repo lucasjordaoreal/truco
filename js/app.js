@@ -90,6 +90,7 @@ class TrucoApp {
     this.chatUnreadBadge = document.getElementById('chatUnreadBadge');
     this._chatOpen = false;
     this._chatUnread = 0;
+    this.localPlayerName = 'Você';
 
     // Configuração solo
     this._soloNumPlayers = 4;
@@ -157,11 +158,13 @@ class TrucoApp {
     });
 
     // === CHAT PANEL ===
-    document.getElementById('btnOpenChat')?.addEventListener('click', () => {
+    document.getElementById('btnOpenChat')?.addEventListener('click', (e) => {
+      e.stopPropagation();
       this.toggleChatPanel();
     });
 
-    document.getElementById('btnCloseChat')?.addEventListener('click', () => {
+    document.getElementById('btnCloseChat')?.addEventListener('click', (e) => {
+      e.stopPropagation();
       this.closeChatPanel();
     });
 
@@ -171,6 +174,30 @@ class TrucoApp {
 
     this.chatInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); this.handleChatSend(); }
+    });
+
+    // Chips de mensagens rápidas
+    document.querySelectorAll('.chat-quick-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const msg = chip.getAttribute('data-msg');
+        if (msg) {
+          this.sendChatMessageDirect(msg);
+        }
+      });
+    });
+
+    // Fechar chat ao clicar fora ou pressionar Escape
+    document.addEventListener('click', (e) => {
+      if (this._chatOpen && this.chatPanel && !this.chatPanel.contains(e.target) && !e.target.closest('#btnOpenChat')) {
+        this.closeChatPanel();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._chatOpen) {
+        this.closeChatPanel();
+      }
     });
 
     // === SOLO MODAL ===
@@ -277,6 +304,7 @@ class TrucoApp {
   // ==========================================
 
   startSoloGame(numPlayers = 4, playerName = 'Você') {
+    this.localPlayerName = playerName;
     this.isSinglePlayer = true;
     this.closeModals();
     this.myPlayerIndex = 0;
@@ -307,6 +335,7 @@ class TrucoApp {
 
   async handleCreateRoom() {
     const playerName = document.getElementById('createPlayerName').value.trim() || 'Criador';
+    this.localPlayerName = playerName;
     const password = document.getElementById('createRoomPassword').value.trim();
     const fillBots = document.getElementById('createFillBots').checked;
     const roomId = TrucoNetwork.generateRoomId();
@@ -367,6 +396,7 @@ class TrucoApp {
     const roomId = document.getElementById('joinRoomCode').value.trim().toUpperCase();
     const password = document.getElementById('joinRoomPassword').value.trim();
     const playerName = document.getElementById('joinPlayerName').value.trim() || 'Amigo';
+    this.localPlayerName = playerName;
 
     if (!roomId) {
       this.showToast('Informe o código da sala!', 'warning');
@@ -1835,10 +1865,15 @@ class TrucoApp {
 
     const joinText = `${peer.name} entrou na mesa!`;
     this.showToast(joinText, 'success');
+    this.addChatMessage('system', '', joinText);
     this.network.broadcast({
       type: 'TOAST',
       message: joinText,
       toastType: 'success'
+    });
+    this.network.broadcast({
+      type: 'CHAT_SYSTEM',
+      text: joinText
     });
   }
 
@@ -1855,10 +1890,15 @@ class TrucoApp {
 
       const disconnectText = `${pName} se desconectou. Um Bot assumiu a vaga.`;
       this.showToast(disconnectText, 'warning');
+      this.addChatMessage('system', '', disconnectText);
       this.network.broadcast({
         type: 'TOAST',
         message: disconnectText,
         toastType: 'warning'
+      });
+      this.network.broadcast({
+        type: 'CHAT_SYSTEM',
+        text: disconnectText
       });
 
       if (this.engine.currentTurnIndex === idx) {
@@ -1872,11 +1912,42 @@ class TrucoApp {
 
     if (data.type === 'TOAST') {
       this.showToast(data.message, data.toastType || 'info');
-    } else if (data.type === 'CHAT') {
-      this.sendSpeechBubble(data.playerIndex, data.text);
-      window.TrucoAudio.playNotification();
+    } else if (data.type === 'CHAT_SYSTEM') {
+      this.addChatMessage('system', '', data.text);
+    } else if (data.type === 'CHAT_TEXT' || data.type === 'CHAT') {
+      let playerIdx = data.playerIndex;
+      let pName = data.playerName;
+
+      // Se for o Host recebendo de um cliente conectado, valida/corrige o índice pelo peerId
+      if (this.network && this.network.isHost && fromPeerId && this.engine && this.engine.players) {
+        const foundIdx = this.engine.players.findIndex(p => p.id === fromPeerId);
+        if (foundIdx !== -1) {
+          playerIdx = foundIdx;
+          pName = this.engine.players[foundIdx].name;
+          data.playerIndex = playerIdx;
+          data.playerName = pName;
+        }
+      }
+
+      // Se a mensagem partiu de nós mesmos (eco de broadcast), descarta
+      if (data.peerId && this.network && data.peerId === this.network.myPeerId) {
+        return;
+      }
+      if (playerIdx !== undefined && playerIdx !== null && playerIdx === this.myPlayerIndex && (!this.network || !this.network.isHost)) {
+        return;
+      }
+
+      const author = pName || (this.engine?.players?.[playerIdx]?.name) || 'Jogador';
+      this.addChatMessage('other', author, data.text, playerIdx);
+
+      if (playerIdx !== undefined && playerIdx !== null && playerIdx >= 0) {
+        this.sendSpeechBubble(playerIdx, data.text);
+      }
+      window.TrucoAudio?.playNotification?.();
+
+      // Se formos o Host, repassa para todos os outros clientes conectados (exceto quem enviou)
       if (this.network && this.network.isHost) {
-        this.network.broadcast(data);
+        this.network.broadcast(data, fromPeerId);
       }
     } else if (data.type === 'CLIENT_PLAY_CARD') {
       if (!this.network || !this.network.isHost || !this.engine) return;
@@ -2281,18 +2352,21 @@ class TrucoApp {
   openChatPanel() {
     this._chatOpen = true;
     this.chatPanel.classList.add('is-open');
+    document.getElementById('btnOpenChat')?.classList.add('is-active');
     this._chatUnread = 0;
     this.chatUnreadBadge.style.display = 'none';
+    this.chatUnreadBadge.textContent = '0';
     // Scroll para baixo
     setTimeout(() => {
       this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-      this.chatInput.focus();
-    }, 260);
+      this.chatInput?.focus();
+    }, 220);
   }
 
   closeChatPanel() {
     this._chatOpen = false;
     this.chatPanel.classList.remove('is-open');
+    document.getElementById('btnOpenChat')?.classList.remove('is-active');
   }
 
   /**
@@ -2300,15 +2374,46 @@ class TrucoApp {
    * @param {'mine'|'other'|'system'} side  - quem enviou
    * @param {string} author                 - nome do jogador
    * @param {string} text                   - conteúdo
+   * @param {number|null} playerIndex       - índice do jogador (opcional)
    */
-  addChatMessage(side, author, text) {
+  addChatMessage(side, author, text, playerIndex = null) {
     const msg = document.createElement('div');
     msg.className = `chat-msg ${side}`;
 
     if (side !== 'system') {
       const authorEl = document.createElement('div');
       authorEl.className = 'chat-msg-author';
-      authorEl.textContent = author;
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'chat-msg-name';
+      nameSpan.textContent = author;
+      authorEl.appendChild(nameSpan);
+
+      // Identifica parceiro ou adversário em mesas com 4 jogadores
+      if (this.engine && this.engine.players && playerIndex !== null && playerIndex !== undefined) {
+        const player = this.engine.players[playerIndex];
+        const myPlayer = (this.engine.players && this.myPlayerIndex !== undefined) ? this.engine.players[this.myPlayerIndex] : null;
+        if (player && myPlayer && this.engine.numPlayers === 4 && side !== 'mine') {
+          const tagSpan = document.createElement('span');
+          if (player.team === myPlayer.team) {
+            tagSpan.className = 'chat-msg-tag partner';
+            tagSpan.textContent = 'Parceiro';
+            authorEl.appendChild(tagSpan);
+          } else {
+            tagSpan.className = 'chat-msg-tag opponent';
+            tagSpan.textContent = 'Adversário';
+            authorEl.appendChild(tagSpan);
+          }
+        }
+      }
+
+      // Horário da mensagem
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'chat-msg-time';
+      const now = new Date();
+      timeSpan.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      authorEl.appendChild(timeSpan);
+
       msg.appendChild(authorEl);
     }
 
@@ -2318,7 +2423,9 @@ class TrucoApp {
     msg.appendChild(bubble);
 
     this.chatMessages.appendChild(msg);
-    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    requestAnimationFrame(() => {
+      this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    });
 
     // Badge de não lida quando painel está fechado
     if (!this._chatOpen && side !== 'system') {
@@ -2328,22 +2435,32 @@ class TrucoApp {
     }
   }
 
-  handleChatSend() {
-    if (!this.chatInput) return;
-    const text = this.chatInput.value.trim();
-    if (!text) return;
-    this.chatInput.value = '';
+  /**
+   * Envia uma mensagem de chat diretamente (por texto digitado ou chip rápido).
+   * @param {string} text - Mensagem a ser enviada
+   */
+  sendChatMessageDirect(text) {
+    if (!text || !text.trim()) return;
+    text = text.trim();
 
-    const myName = (this.engine && this.engine.players && this.engine.players[this.myPlayerIndex])
+    const myName = (this.engine && this.engine.players && this.engine.players[this.myPlayerIndex] && !this.engine.players[this.myPlayerIndex].isBot)
       ? this.engine.players[this.myPlayerIndex].name
-      : 'Você';
+      : (this.localPlayerName || this.network?.clientInfo?.name || 'Você');
 
-    this.addChatMessage('mine', myName, text);
-    this.sendSpeechBubble(this.myPlayerIndex, text);
+    this.addChatMessage('mine', myName, text, this.myPlayerIndex);
+    if (this.myPlayerIndex !== undefined && this.myPlayerIndex !== null && this.myPlayerIndex >= 0) {
+      this.sendSpeechBubble(this.myPlayerIndex, text);
+    }
 
-    // Multiplayer: broadcast
+    // Multiplayer: broadcast para todos (Host) ou envio ao Host (Cliente)
     if (!this.isSinglePlayer && this.network) {
-      const msg = { type: 'CHAT_TEXT', playerIndex: this.myPlayerIndex, playerName: myName, text };
+      const msg = {
+        type: 'CHAT_TEXT',
+        playerIndex: this.myPlayerIndex,
+        playerName: myName,
+        peerId: this.network.myPeerId,
+        text
+      };
       if (this.network.isHost) {
         this.network.broadcast(msg);
       } else {
@@ -2355,24 +2472,34 @@ class TrucoApp {
     }
   }
 
+  handleChatSend() {
+    if (!this.chatInput) return;
+    const text = this.chatInput.value.trim();
+    if (!text) return;
+    this.chatInput.value = '';
+    this.sendChatMessageDirect(text);
+  }
+
   /** Bot responde ao chat do jogador com uma das frases aleatórias */
   _botChatReaction() {
     if (!this.engine || !this.bots) return;
     const botResponses = [
-      'Haha, tá bom!', 'Cala boca e joga!', 'Foco na partida!',
-      'Boa!', 'Tô de olho em você...', 'Vai querer chorar depois!'
+      'Haha, tá bom! 😂', 'Cala boca e joga! 🤫', 'Foco na partida! 🃏',
+      'Boa! 👏', 'Tô de olho em você... 👀', 'Vai querer chorar depois! 🔥',
+      'Essa vasa já é minha! 👊', 'Cuidado com a manilha! ⚠️'
     ];
-    // Escolhe um bot aleatório com 40% de chance
-    if (Math.random() > 0.4) return;
+    // Escolhe um bot aleatório com 45% de chance
+    if (Math.random() > 0.45) return;
     const botIndices = Object.keys(this.bots).filter(i => this.bots[i]);
     if (botIndices.length === 0) return;
     const idx = parseInt(botIndices[Math.floor(Math.random() * botIndices.length)]);
     const botName = this.engine.players[idx] ? this.engine.players[idx].name : `Bot ${idx}`;
     const text = botResponses[Math.floor(Math.random() * botResponses.length)];
     setTimeout(() => {
-      this.addChatMessage('other', botName, text);
+      this.addChatMessage('other', botName, text, idx);
       this.sendSpeechBubble(idx, text);
-    }, 800 + Math.random() * 1200);
+      window.TrucoAudio?.playNotification?.();
+    }, 700 + Math.random() * 1000);
   }
 
   /** Bot manda mensagem de chat num evento de jogo (truco, vasa, etc) */
@@ -2380,8 +2507,9 @@ class TrucoApp {
     if (!this.engine || !this.engine.players[botIndex]) return;
     const botName = this.engine.players[botIndex].name;
     setTimeout(() => {
-      this.addChatMessage('other', botName, text);
-    }, 600);
+      this.addChatMessage('other', botName, text, botIndex);
+      this.sendSpeechBubble(botIndex, text);
+    }, 500);
   }
 
   // ==========================================

@@ -598,6 +598,17 @@
     padding: 10px 14px;
   }
 
+  .chat-quick-bar {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .chat-quick-chip {
+    font-size: 12px;
+    padding: 6px 11px;
+    touch-action: manipulation;
+  }
+
   .chat-input-row {
     padding: 8px 10px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
