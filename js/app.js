@@ -276,9 +276,11 @@ class TrucoApp {
       this.showToast(window.TrucoMusic.muted ? 'Música desativada' : 'Música ativada');
     });
 
-    document.addEventListener('pointerdown', () => {
+    const startMusicFromInteraction = () => {
       window.TrucoMusic?.start?.();
-    }, { once: true });
+    };
+    document.addEventListener('pointerdown', startMusicFromInteraction);
+    document.addEventListener('keydown', startMusicFromInteraction);
   }
 
   openModal(modal) {

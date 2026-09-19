@@ -346,30 +346,47 @@ class TrucoMusic {
 
   async _start() {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-
-    if (!this.ctx) {
-      this.ctx = new AudioContext();
+    if (!this.audio) {
       this.audio = new Audio();
       this.audio.preload = 'auto';
+      this.audio.playsInline = true;
+      this.audio.setAttribute('playsinline', '');
       this.audio.addEventListener('ended', () => this.playNext());
-      this.source = this.ctx.createMediaElementSource(this.audio);
-      this.gain = this.ctx.createGain();
-      this.source.connect(this.gain);
-      this.gain.connect(this.ctx.destination);
     }
 
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (!this.ctx && AudioContext) {
+      try {
+        this.ctx = new AudioContext();
+        this.source = this.ctx.createMediaElementSource(this.audio);
+        this.gain = this.ctx.createGain();
+        this.source.connect(this.gain);
+        this.gain.connect(this.ctx.destination);
+      } catch (_) {
+        this.ctx = null;
+        this.source = null;
+        this.gain = null;
+      }
+    }
+
+    if (this.ctx?.state === 'suspended') this.ctx.resume();
     if (this.trackIndex < 0) {
       this.shuffleTracks();
       this.trackIndex = 0;
       this.audio.src = this.tracks[this.trackIndex];
-      this.gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+      if (this.gain) {
+        this.gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+      } else {
+        this.audio.volume = 0.16;
+      }
       this.audio.play().then(() => {
         this.playing = true;
       }).catch(() => {
         this.playing = false;
       });
+    }
+    if (!this.ctx) {
+      this.trackGains = this.tracks.map(() => 1);
+      return;
     }
     if (!this.trackGains.length) {
       await this.analyzeTracks();
@@ -438,7 +455,11 @@ class TrucoMusic {
     if (!this.audio || this.muted) return;
     this.trackIndex = (this.trackIndex + 1) % this.tracks.length;
     this.audio.src = this.tracks[this.trackIndex];
-    this.gain.gain.setValueAtTime(this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime);
+    if (this.gain) {
+      this.gain.gain.setValueAtTime(this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime);
+    } else {
+      this.audio.volume = 0.16;
+    }
     try {
       await this.audio.play();
       this.playing = true;
@@ -451,6 +472,8 @@ class TrucoMusic {
     this.muted = muted;
     if (this.gain && this.ctx) {
       this.gain.gain.setTargetAtTime(muted ? 0 : this.trackGains[this.trackIndex] * 0.04, this.ctx.currentTime, 0.03);
+    } else if (this.audio) {
+      this.audio.muted = muted;
     }
     if (!muted) this.start();
   }
