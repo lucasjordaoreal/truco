@@ -424,6 +424,31 @@ class TrucoEngine {
       championTeam: this.winningTeam
     };
   }
+
+  // Reinicia a partida para revanche (zera placar para 0x0 mantendo os mesmos jogadores)
+  resetMatch() {
+    this.scores = [0, 0];
+    this.gameOver = false;
+    this.winningTeam = null;
+    this.handOver = false;
+    this.currentRound = 0;
+    this.roundCards = [];
+    this.roundWinners = [];
+    this.trickStarters = [];
+    this.currentStake = 1;
+    this.pendingBet = null;
+    this.lastBettorTeam = null;
+    this.isMaoDeOnze = false;
+    this.maoDeOnzeTeam = null;
+    this.isMaoDeFerro = false;
+    this.vira = null;
+    this.manilhaRank = null;
+    if (this.players) {
+      for (const p of this.players) {
+        p.hand = [];
+      }
+    }
+  }
 }
 
 window.TrucoEngine = TrucoEngine;

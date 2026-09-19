@@ -9,9 +9,9 @@
     content="Jogue Truco Paulista online grátis com amigos ou bots. Salas de 2, 4 e 6 jogadores, sem cadastro, direto no navegador via WebRTC P2P para GitHub Pages.">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="css/main.css?v=1.1.0">
-  <link rel="stylesheet" href="css/table.css?v=1.1.0">
-  <link rel="stylesheet" href="css/animations.css?v=1.1.0">
+  <link rel="stylesheet" href="css/main.css?v=1.2.0">
+  <link rel="stylesheet" href="css/table.css?v=1.2.0">
+  <link rel="stylesheet" href="css/animations.css?v=1.2.0">
 
   <!-- PeerJS WebRTC P2P (Serverless / GitHub Pages Friendly) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -95,6 +95,7 @@
         <div class="hud-team nos">
           <span class="hud-team-tag">NÓS</span>
           <span class="hud-score-number" id="scoreTeam0">0</span>
+          <span class="hud-series-badge" id="seriesBadge0" style="display:none;" title="Vitórias da equipe na série">0🏆</span>
         </div>
 
         <div class="hud-divider"></div>
@@ -109,6 +110,7 @@
         <div class="hud-divider"></div>
 
         <div class="hud-team eles">
+          <span class="hud-series-badge" id="seriesBadge1" style="display:none;" title="Vitórias da equipe na série">0🏆</span>
           <span class="hud-score-number" id="scoreTeam1">0</span>
           <span class="hud-team-tag">ELES</span>
         </div>
@@ -298,6 +300,57 @@
     </div>
   </div>
 
+  <!-- MODAL: Fim de Partida e Revanche -->
+  <div class="modal-overlay" id="gameOverModal">
+    <div class="modal-window game-over-window" style="max-width: 440px; text-align: center;">
+      <div class="game-over-icon" id="gameOverIcon">🏆</div>
+      <h2 class="modal-title" id="gameOverTitle" style="font-size: 24px; margin-bottom: 6px;">VITÓRIA!</h2>
+      <p id="gameOverSubtitle" style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+        Sua equipe alcançou 12 pontos!
+      </p>
+
+      <!-- Placar Final da Partida -->
+      <div class="game-over-match-box">
+        <div class="go-team go-nos">
+          <span class="go-team-name">NÓS</span>
+          <span class="go-team-score" id="gameOverScoreNos">12</span>
+        </div>
+        <div class="go-vs">✕</div>
+        <div class="go-team go-eles">
+          <span class="go-team-score" id="gameOverScoreEles">8</span>
+          <span class="go-team-name">ELES</span>
+        </div>
+      </div>
+
+      <!-- Placar da Revanche / Confrontos da Série -->
+      <div class="game-over-series-box">
+        <div class="series-box-title">PLACAR DA SÉRIE (REVANCHE)</div>
+        <div class="series-box-row">
+          <div class="series-stat-col nos">
+            <span class="series-stat-label">NÓS</span>
+            <span class="series-stat-count" id="seriesWinsNos">1</span>
+            <span class="series-stat-sub">vitórias</span>
+          </div>
+          <div class="series-stat-divider">:</div>
+          <div class="series-stat-col eles">
+            <span class="series-stat-label">ELES</span>
+            <span class="series-stat-count" id="seriesWinsEles">0</span>
+            <span class="series-stat-sub">vitórias</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 24px;">
+        <button class="btn-cta" id="btnPlayAgain" style="width: 100%; font-size: 15px; padding: 14px 20px;">
+          🔄 Jogar Novamente (Revanche)
+        </button>
+        <button class="btn-outline" id="btnReturnLobby" style="width: 100%; margin-top: 0; padding: 12px 20px;">
+          🏠 Voltar ao Menu Principal
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: Regras Oficiais do Truco Paulista -->
   <div class="modal-overlay" id="rulesModal">
     <div class="modal-window" style="max-width: 520px; max-height: 85vh; overflow-y: auto;">
@@ -336,13 +389,13 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/constants.js?v=1.1.0"></script>
-  <script src="js/deck.js?v=1.1.0"></script>
-  <script src="js/engine.js?v=1.1.0"></script>
-  <script src="js/bot.js?v=1.1.0"></script>
-  <script src="js/network.js?v=1.1.0"></script>
-  <script src="js/audio.js?v=1.1.0"></script>
-  <script src="js/app.js?v=1.1.0"></script>
+  <script src="js/constants.js?v=1.2.0"></script>
+  <script src="js/deck.js?v=1.2.0"></script>
+  <script src="js/engine.js?v=1.2.0"></script>
+  <script src="js/bot.js?v=1.2.0"></script>
+  <script src="js/network.js?v=1.2.0"></script>
+  <script src="js/audio.js?v=1.2.0"></script>
+  <script src="js/app.js?v=1.2.0"></script>
 
   <script>
     document.getElementById('btnOpenRules')?.addEventListener('click', () => {

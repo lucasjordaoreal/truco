@@ -79,9 +79,26 @@ class TrucoApp {
 
     // Configuração solo
     this._soloNumPlayers = 4;
+
+    // Fim de jogo e Revanche
+    this.gameOverModal   = document.getElementById('gameOverModal');
+    this.btnPlayAgain    = document.getElementById('btnPlayAgain');
+    this.btnReturnLobby  = document.getElementById('btnReturnLobby');
+    this.seriesBadge0    = document.getElementById('seriesBadge0');
+    this.seriesBadge1    = document.getElementById('seriesBadge1');
+    this.seriesWins      = [0, 0]; // [Vitórias Time 0, Vitórias Time 1]
   }
 
   bindEvents() {
+    // Fim de jogo e Revanche
+    this.btnPlayAgain?.addEventListener('click', () => {
+      this.handlePlayAgain();
+    });
+
+    this.btnReturnLobby?.addEventListener('click', () => {
+      this.handleReturnToLobby();
+    });
+
     // Ações na mão
     this.btnCoverToggle?.addEventListener('click', () => {
       if (this.engine && this.engine.currentRound === 0) {
@@ -236,6 +253,8 @@ class TrucoApp {
     this.myPlayerIndex = 0;
     this.roomConfig.id = 'SOLO';
     this.roomConfig.numPlayers = numPlayers;
+    this.seriesWins = [0, 0];
+    this.updateSeriesHUD();
 
     this.roomBadge.style.display = 'flex';
     this.roomBadgeText.textContent = `SOLO (${numPlayers}P)`;
@@ -266,6 +285,8 @@ class TrucoApp {
     this.isSinglePlayer = false;
     this.roomConfig.id = roomId;
     this.roomConfig.password = password;
+    this.seriesWins = [0, 0];
+    this.updateSeriesHUD();
     this.roomConfig.fillBots = fillBots;
 
     this.showToast('Iniciando sala P2P...', 'info');
@@ -568,6 +589,8 @@ class TrucoApp {
         else if (winner === -1) dot.classList.add('tie');
       }
     });
+
+    this.updateSeriesHUD();
   }
 
   updateDealerAndTurnHighlights() {
@@ -735,13 +758,20 @@ class TrucoApp {
     }
 
     if (this.engine.gameOver) {
+      const champTeam = this.engine.winningTeam;
+      if (champTeam !== null && champTeam !== undefined) {
+        this.seriesWins[champTeam] = (this.seriesWins[champTeam] || 0) + 1;
+        this.updateSeriesHUD();
+      }
+
       setTimeout(() => {
         const isChamp = (myPlayer && this.engine.winningTeam === myPlayer.team);
         this.triggerEventBanner(
           isChamp ? 'CAMPEÕES DA PARTIDA!' : 'FIM DE JOGO!',
           isChamp ? 'Parabéns! Vocês fecharam os 12 pontos!' : 'A equipe adversária fechou os 12 pontos.'
         );
-      }, 2000);
+        this.showGameOverModal();
+      }, 1600);
       return;
     }
 
@@ -1319,6 +1349,20 @@ class TrucoApp {
       }
     } else if (data.type === 'ACTION_ERROR') {
       this.showToast(data.message, 'warning');
+    } else if (data.type === 'REMATCH_START') {
+      this.closeModals();
+      if (data.seriesWins) {
+        this.seriesWins = [...data.seriesWins];
+      }
+      this.updateSeriesHUD();
+      this.showToast('O anfitrião iniciou a revanche!', 'success');
+    } else if (data.type === 'REQUEST_REMATCH') {
+      if (this.network && this.network.isHost) {
+        const peer = this.network.peers?.get?.(fromPeerId);
+        const name = peer ? peer.name : 'Um jogador';
+        this.showToast(`${name} pediu revanche!`, 'info');
+        this.addChatMessage('system', '', `${name} pediu revanche!`);
+      }
     } else if (data.type === 'STATE_SYNC') {
       if (!this.engine) {
         this.engine = new TrucoEngine({ numPlayers: data.numPlayers });
@@ -1345,6 +1389,10 @@ class TrucoApp {
       this.engine.gameOver = !!data.gameOver;
       this.engine.winningTeam = data.winningTeam;
 
+      if (data.seriesWins) {
+        this.seriesWins = [...data.seriesWins];
+      }
+
       if (data.players) {
         this.engine.players = data.players.map(p => ({
           index: p.index,
@@ -1368,6 +1416,13 @@ class TrucoApp {
         this.showBetResponseUI(this.engine.pendingBet);
       } else {
         this.betResponseBar.style.display = 'none';
+      }
+
+      if (this.engine.gameOver) {
+        this.stopTurnTimer();
+        setTimeout(() => {
+          this.showGameOverModal();
+        }, 1500);
       }
     }
   }
@@ -1408,7 +1463,8 @@ class TrucoApp {
           isMaoDeFerro: this.engine.isMaoDeFerro,
           handOver: this.engine.handOver,
           gameOver: this.engine.gameOver,
-          winningTeam: this.engine.winningTeam
+          winningTeam: this.engine.winningTeam,
+          seriesWins: [...this.seriesWins]
         });
       }
     });
@@ -1566,6 +1622,150 @@ class TrucoApp {
     setTimeout(() => {
       this.addChatMessage('other', botName, text);
     }, 600);
+  }
+
+  // ==========================================
+  // PLACAR DE SÉRIE E REVANCHE
+  // ==========================================
+
+  updateSeriesHUD() {
+    if (!this.seriesBadge0 || !this.seriesBadge1) return;
+    const myPlayer = (this.engine && this.engine.players && this.engine.players[this.myPlayerIndex]) ? this.engine.players[this.myPlayerIndex] : null;
+    const myTeam = myPlayer ? myPlayer.team : 0;
+    const oppTeam = 1 - myTeam;
+
+    const totalWins = (this.seriesWins[0] || 0) + (this.seriesWins[1] || 0);
+    if (totalWins > 0) {
+      this.seriesBadge0.style.display = 'inline-block';
+      this.seriesBadge0.textContent = `${this.seriesWins[myTeam] || 0}🏆`;
+      this.seriesBadge1.style.display = 'inline-block';
+      this.seriesBadge1.textContent = `${this.seriesWins[oppTeam] || 0}🏆`;
+    } else {
+      this.seriesBadge0.style.display = 'none';
+      this.seriesBadge1.style.display = 'none';
+    }
+  }
+
+  showGameOverModal() {
+    if (!this.engine) return;
+    const myPlayer = (this.engine.players && this.engine.players[this.myPlayerIndex]) ? this.engine.players[this.myPlayerIndex] : null;
+    const myTeam = myPlayer ? myPlayer.team : 0;
+    const oppTeam = 1 - myTeam;
+    const isWinner = (this.engine.winningTeam === myTeam);
+
+    const winIcon = document.getElementById('gameOverIcon');
+    const winTitle = document.getElementById('gameOverTitle');
+    const winSubtitle = document.getElementById('gameOverSubtitle');
+    const scoreNos = document.getElementById('gameOverScoreNos');
+    const scoreEles = document.getElementById('gameOverScoreEles');
+    const winsNos = document.getElementById('seriesWinsNos');
+    const winsEles = document.getElementById('seriesWinsEles');
+    const modalWindow = this.gameOverModal?.querySelector('.game-over-window');
+
+    if (winIcon) winIcon.textContent = isWinner ? '🏆' : '💀';
+    if (winTitle) {
+      winTitle.textContent = isWinner ? 'VITÓRIA!' : 'DERROTA!';
+      winTitle.className = isWinner ? 'modal-title victory' : 'modal-title defeat';
+    }
+    if (winSubtitle) {
+      winSubtitle.textContent = isWinner ? 'Parabéns! Sua equipe fechou os 12 pontos!' : 'A equipe adversária fechou os 12 pontos.';
+    }
+    if (modalWindow) {
+      modalWindow.classList.remove('victory', 'defeat');
+      modalWindow.classList.add(isWinner ? 'victory' : 'defeat');
+    }
+
+    if (scoreNos) scoreNos.textContent = (this.engine.scores && this.engine.scores[myTeam] !== undefined) ? this.engine.scores[myTeam] : 0;
+    if (scoreEles) scoreEles.textContent = (this.engine.scores && this.engine.scores[oppTeam] !== undefined) ? this.engine.scores[oppTeam] : 0;
+    if (winsNos) winsNos.textContent = this.seriesWins[myTeam] || 0;
+    if (winsEles) winsEles.textContent = this.seriesWins[oppTeam] || 0;
+
+    if (isWinner) {
+      window.TrucoAudio?.playWinChime?.();
+    }
+
+    this.openModal(this.gameOverModal);
+  }
+
+  handlePlayAgain() {
+    this.closeModals();
+
+    if (this.isSinglePlayer || (this.network && this.network.isHost)) {
+      this.engine.resetMatch();
+      this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
+      this.updateScoreboard();
+      this.updateSeriesHUD();
+
+      const myPlayer = (this.engine.players && this.engine.players[this.myPlayerIndex]) ? this.engine.players[this.myPlayerIndex] : null;
+      const myTeam = myPlayer ? myPlayer.team : 0;
+      const oppTeam = 1 - myTeam;
+
+      this.triggerEventBanner('REVANCHE!', `Série: Nós ${this.seriesWins[myTeam]} x ${this.seriesWins[oppTeam]} Eles`);
+      this.addChatMessage('system', '', `Revanche iniciada! Placar geral: Nós ${this.seriesWins[myTeam]} x ${this.seriesWins[oppTeam]} Eles`);
+
+      // Bots reagem à revanche
+      if (this.isSinglePlayer) {
+        const rematchTaunts = [
+          'Agora o bicho vai pegar!',
+          'Dessa vez eu não perdoo!',
+          'Bora pra revanche, não arrego não!',
+          'Sorte de principiante, quero ver agora!',
+          'Tô pronto pro troco!'
+        ];
+        const botIndices = Object.keys(this.bots).filter(i => this.bots[i]);
+        if (botIndices.length > 0) {
+          const randBot = parseInt(botIndices[Math.floor(Math.random() * botIndices.length)]);
+          const botName = this.engine.players[randBot] ? this.engine.players[randBot].name : 'Bot';
+          const taunt = rematchTaunts[Math.floor(Math.random() * rematchTaunts.length)];
+          setTimeout(() => {
+            this.addChatMessage('other', botName, taunt);
+            this.sendSpeechBubble(randBot, taunt);
+          }, 900);
+        }
+      }
+
+      // Se multiplayer host, sincroniza com peers
+      if (this.network && this.network.isHost) {
+        this.network.broadcast({
+          type: 'REMATCH_START',
+          seriesWins: [...this.seriesWins]
+        });
+      }
+
+      this.startRoundHand();
+    } else if (this.network && !this.network.isHost) {
+      this.network.sendToHost({
+        type: 'REQUEST_REMATCH'
+      });
+      this.showToast('Pedido de revanche enviado ao anfitrião da sala!', 'info');
+    }
+  }
+
+  handleReturnToLobby() {
+    this.closeModals();
+    this.stopTurnTimer();
+
+    // Zera contagem da série ao voltar para o menu
+    this.seriesWins = [0, 0];
+    this.updateSeriesHUD();
+
+    if (this.network) {
+      try { this.network.disconnect(); } catch (e) {}
+      this.network = null;
+    }
+
+    this.roomBadge.style.display = 'none';
+    this.table.className = 'truco-arena layout-4';
+    this.seatsContainer.innerHTML = '';
+    this.trickDropzone.innerHTML = '<span class="trick-tabletop-label">Área de Vasa</span>';
+    this.viraContainer.innerHTML = '';
+    this.myHandElement.innerHTML = '';
+    this.scoreTeam0.textContent = '0';
+    this.scoreTeam1.textContent = '0';
+    this.trickDots.forEach(d => d.className = 'trick-pip');
+
+    this.openModal(this.lobbyModal);
+    this.showToast('Retornou ao menu principal.');
   }
 }
 

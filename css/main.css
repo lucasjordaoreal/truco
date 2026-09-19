@@ -635,3 +635,141 @@ body {
   font-weight: 800;
   color: var(--text-primary);
 }
+
+/* ==========================================================================
+   GAME OVER MODAL & SERIES SCOREBOARD
+   ========================================================================== */
+.game-over-window {
+  text-align: center;
+  border: 1px solid var(--border-mild);
+  position: relative;
+  overflow: hidden;
+  padding: 30px 24px 24px;
+}
+
+.game-over-window.victory {
+  border-color: rgba(200, 160, 60, 0.45);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(200, 160, 60, 0.12);
+}
+
+.game-over-window.defeat {
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(239, 68, 68, 0.1);
+}
+
+.game-over-icon {
+  font-size: 52px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+#gameOverTitle.victory {
+  color: var(--gold-light);
+}
+
+#gameOverTitle.defeat {
+  color: #f87171;
+}
+
+.game-over-match-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(10, 12, 14, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  margin-bottom: 16px;
+}
+
+.go-team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+
+.go-team-name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+
+.go-team.go-nos .go-team-name { color: #2ecc71; }
+.go-team.go-eles .go-team-name { color: #e74c3c; }
+
+.go-team-score {
+  font-size: 34px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.go-vs {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.game-over-series-box {
+  background: rgba(13, 16, 20, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.series-box-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--gold-light);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.series-box-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.series-stat-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.series-stat-label {
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.series-stat-col.nos .series-stat-label { color: #2ecc71; }
+.series-stat-col.eles .series-stat-label { color: #e74c3c; }
+
+.series-stat-count {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.series-stat-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.series-stat-divider {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
