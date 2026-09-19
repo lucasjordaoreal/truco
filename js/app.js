@@ -1,6 +1,9 @@
 // d:\truco\js\app.js
 // Controlador principal de interface e fluxo do jogo Truco Paulista
 
+const CHAT_BOT_NAMES = ['Chico Bento', 'Zeca Mão de Onze', 'Pedrão do Zap', 'Tião Carreiro', 'Tonho'];
+const CHAT_BOT_ALIASES = [[], ['chico'], ['zeca', 'ze'], ['pedrao', 'pedro'], ['tiao'], ['tonho']];
+
 class TrucoApp {
   constructor() {
     this.engine = null;
@@ -355,11 +358,10 @@ class TrucoApp {
       { id: 'me', name: playerName, isBot: false }
     ];
 
-    const botNames = ['Chico Bento', 'Zeca Mão de Onze', 'Pedrão do Zap', 'Tião Carreiro', 'Tonho'];
     for (let i = 1; i < numPlayers; i++) {
       playerConfigs.push({
         id: `bot_${i}`,
-        name: botNames[i - 1] || `Bot ${i}`,
+        name: CHAT_BOT_NAMES[i - 1] || `Bot ${i}`,
         isBot: true
       });
     }
@@ -414,7 +416,7 @@ class TrucoApp {
       for (let i = 1; i < this.roomConfig.numPlayers; i++) {
         playerConfigs.push({
           id: `slot_${i}`,
-          name: this.roomConfig.fillBots ? `Bot ${i}` : `Aguardando...`,
+          name: this.roomConfig.fillBots ? (CHAT_BOT_NAMES[i - 1] || `Bot ${i}`) : 'Aguardando...',
           isBot: this.roomConfig.fillBots
         });
       }
@@ -1945,7 +1947,7 @@ class TrucoApp {
     const idx = this.engine.players.findIndex(p => p.id === peerId);
     if (idx !== -1) {
       const pName = this.engine.players[idx].name;
-      this.engine.players[idx].name = `Bot ${idx}`;
+      this.engine.players[idx].name = CHAT_BOT_NAMES[idx - 1] || `Bot ${idx}`;
       this.engine.players[idx].isBot = true;
       this.bots[idx] = new TrucoBot(idx, this.engine);
       this.renderSeats();
@@ -2446,7 +2448,7 @@ class TrucoApp {
    * @param {string} text                   - conteúdo
    * @param {number|null} playerIndex       - índice do jogador (opcional)
    */
-  addChatMessage(side, author, text, playerIndex = null) {
+  addChatMessage(side, author, text, playerIndex = null, options = {}) {
     const msg = document.createElement('div');
     msg.className = `chat-msg ${side}`;
 
@@ -2489,27 +2491,59 @@ class TrucoApp {
 
     const bubble = document.createElement('div');
     bubble.className = 'chat-msg-bubble';
-    bubble.textContent = text;
+    const shouldAnimate = !options.typing && (options.animate ?? side === 'other');
+    if (options.typing) {
+      bubble.classList.add('chat-typing-bubble');
+      bubble.innerHTML = '<span></span><span></span><span></span>';
+    } else if (!shouldAnimate) {
+      bubble.textContent = text;
+    } else {
+      bubble.textContent = '';
+    }
     msg.appendChild(bubble);
-
     this.chatMessages.appendChild(msg);
+    if (shouldAnimate) this._typeChatText(bubble, text);
     requestAnimationFrame(() => {
       this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     });
 
     // Badge de não lida quando painel está fechado
-    if (!this._chatOpen && side !== 'system') {
+    if (!options.skipUnread && !this._chatOpen && side !== 'system') {
       this._chatUnread++;
       this.chatUnreadBadge.style.display = 'flex';
       this.chatUnreadBadge.textContent = this._chatUnread > 9 ? '9+' : this._chatUnread;
     }
+
+    return msg;
+  }
+
+  _typeChatText(element, text) {
+    let position = 0;
+    const writeNextCharacter = () => {
+      if (!element.isConnected) return;
+      element.textContent = text.slice(0, position++);
+      if (position <= text.length) {
+        setTimeout(writeNextCharacter, 18);
+      }
+    };
+    writeNextCharacter();
+  }
+
+  showChatTyping(author, playerIndex = null) {
+    return this.addChatMessage('other', author, '', playerIndex, {
+      typing: true,
+      skipUnread: true,
+      animate: false
+    });
   }
 
   /**
    * Envia uma mensagem de chat diretamente (por texto digitado ou chip rápido).
    * @param {string} text - Mensagem a ser enviada
+   * @param {string} author - Autor da mensagem
    */
-  sendChatMessageDirect(text) {
+  sendChatMessageDirect(text, author = 'Jogador') {
+    if (author.trim().toLowerCase() === 'ia') return;
     if (!text || !text.trim()) return;
     text = text.trim();
 
@@ -2536,10 +2570,183 @@ class TrucoApp {
       } else {
         this.network.sendToHost(msg);
       }
-    } else if (this.isSinglePlayer) {
-      // Bots reagem de forma inteligente ao que o jogador escreveu
-      this._botChatReaction(text);
     }
+
+    // Inicia uma conversa curta entre os bots-IA da mesa.
+    const botIndex = this._getAiChatBotIndex(text);
+    this._startAiChatConversation(text, botIndex, 0, [], myName);
+  }
+
+  _startAiChatConversation(message, botIndex, turn = 0, previousBotIndices = [], sourceAuthor = 'Jogador') {
+    if (botIndex === null || turn >= 3) return;
+
+    const botName = this.engine?.players?.[botIndex]?.name || CHAT_BOT_NAMES[0];
+    const typingMessage = this.showChatTyping(botName, botIndex);
+    const thinkingDelay = 900 + Math.min(message.length * 18, 1200);
+    setTimeout(() => this.solicitarRespostaGemini(message, botIndex, sourceAuthor).then((response) => {
+      typingMessage.remove();
+      if (!response) {
+        // Mantém a reação local caso a API esteja indisponível no modo solo.
+        if (turn === 0 && this.isSinglePlayer) this._botChatReaction(message);
+        return;
+      }
+
+      this.addChatMessage('other', response.botName, response.text, response.botIndex);
+      if (response.botIndex !== null) this.sendSpeechBubble(response.botIndex, response.text);
+      window.TrucoAudio?.playNotification?.();
+
+      const nextBotIndex = this._getAiChatBotIndex(
+        response.text,
+        [...previousBotIndices, botIndex],
+        this.engine?.players?.[botIndex]?.team
+      );
+      if (nextBotIndex !== null && turn < 1 && this._shouldContinueAiConversation(response.text, botIndex)) {
+        const readingPause = 1800 + Math.min(response.text.length * 16, 1800);
+        setTimeout(() => {
+          this._startAiChatConversation(response.text, nextBotIndex, turn + 1, [...previousBotIndices, botIndex], response.botName);
+        }, readingPause);
+      }
+    }), thinkingDelay);
+  }
+
+  /**
+   * Solicita uma resposta curta da IA para uma mensagem do jogador.
+   * Retorna null quando a API falha, permitindo que o chat continue funcionando.
+   * @param {string} mensagemUsuario - Mensagem enviada pelo jogador humano
+   * @param {number|null} botIndex - Índice do bot que responderá
+  * @param {string} autorMensagem - Nome de quem iniciou a fala
+   * @returns {Promise<{text: string, botName: string, botIndex: number|null}|null>} Resposta formatada ou null
+   */
+  async solicitarRespostaGemini(mensagemUsuario, botIndex = null, autorMensagem = 'Jogador') {
+    try {
+      if (!window.TrucoConstants.GEMINI_API_ENDPOINT) return null;
+
+      const gameContext = this._getChatGameContext();
+      const botName = botIndex !== null && this.engine?.players?.[botIndex]
+        ? this.engine.players[botIndex].name
+        : CHAT_BOT_NAMES[0];
+      const botTeam = botIndex !== null ? this.engine?.players?.[botIndex]?.team : null;
+      const sourcePlayer = this.engine?.players?.find(player => player.name === autorMensagem);
+      const sourceIsAlly = sourcePlayer && botTeam !== null && sourcePlayer.team === botTeam;
+      const identityAliasText = botName === CHAT_BOT_NAMES[1]
+        ? 'Zeca e Zé são a mesma pessoa; use Zeca Mão de Onze como nome exibido.'
+        : '';
+      const matchFormatText = this.engine?.numPlayers === 2
+        ? 'Esta é uma partida 1v1. Você não tem parceiro: o jogador humano é seu único adversário e nunca deve ser tratado como aliado.'
+        : `Esta é uma partida ${this.engine?.numPlayers || 4}P. Respeite as equipes: bots da sua equipe são aliados e os demais são adversários.`;
+      const relationshipText = sourceIsAlly
+        ? `${autorMensagem} é seu parceiro de equipe. Converse com cooperação e nunca ameace ou trate essa pessoa como adversário.`
+        : `${autorMensagem} é adversário. Você pode provocar, mas continue jogando dentro do clima do truco.`;
+      const contextText = gameContext
+        ? `Contexto atual: placar ${gameContext.myScore} a ${gameContext.botScore}, vale ${gameContext.currentStake}, vasa ${gameContext.playerVasas} a ${gameContext.botVasas}.`
+        : 'Contexto atual: partida de truco em andamento.';
+
+      const response = await fetch(window.TrucoConstants.GEMINI_API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Você é ${botName}, um jogador de truco brasileiro sentado à mesa nesta partida.
+Fale com o mesmo linguajar informal, debochado e provocador dos bots do jogo, como uma conversa natural de mesa.
+Seu nome é exatamente "${botName}"; nunca troque, abrevie ou invente variações como "Pedro". Sua personalidade deve combinar com esse apelido. Use expressões de truco e referências à rodada quando fizer sentido. Pode fazer trash talk leve e usar gírias, mas nunca explique que é uma IA, nunca saia do personagem e nunca invente regras.
+${identityAliasText}
+${matchFormatText}
+Se a mensagem mencionar dois bots, o primeiro nome citado é quem foi chamado para falar; o segundo é apenas o personagem da conversa. Nunca trate o nome de outro bot como se fosse o nome do jogador humano.
+${relationshipText}
+Responda com uma única frase curta, idealmente entre 6 e 15 palavras, sem listas, discurso ou prefácio.
+${contextText}
+
+Mensagem de ${autorMensagem}: ${mensagemUsuario}`
+            }]
+          }],
+          generationConfig: {
+            maxOutputTokens: 60,
+            temperature: 0.9
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini respondeu com HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!text) throw new Error('Resposta vazia da Gemini');
+      return { text, botName, botIndex };
+    } catch (error) {
+      console.error('Não foi possível obter resposta da Gemini:', error);
+      return null;
+    }
+  }
+
+  _shouldContinueAiConversation(text, currentBotIndex) {
+    const normalizedText = (text || '').toLowerCase();
+    const otherBotMentioned = (this.engine?.players || []).some((player, index) => {
+      if (!player?.isBot || index === currentBotIndex) return false;
+      const aliases = [
+        player.name.toLowerCase().split(/\s+/)[0],
+        ...(CHAT_BOT_ALIASES[index] || [])
+      ];
+      return aliases.some(alias => normalizedText.includes(alias));
+    });
+    const invitation = /[?!]|\b(fala|responde|responda|e voce|vem|aceita|duvida|quero ver)\b/i.test(text || '');
+    return otherBotMentioned || invitation;
+  }
+
+  _getAiChatBotIndex(message, excludedIndices = [], preferredTeam = null) {
+    const players = this.engine?.players || [];
+    const botIndices = players
+      .map((player, index) => player?.isBot ? index : null)
+      .filter(index => index !== null && !excludedIndices.includes(index));
+    if (botIndices.length === 0) return null;
+
+    const normalize = (value) => (value || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const normalizedMessage = normalize(message);
+    const mentionedBot = botIndices
+      .map(index => {
+        const normalizedName = normalize(players[index].name);
+        const aliases = [normalizedName, ...(CHAT_BOT_ALIASES[index] || [])];
+        const positions = aliases
+          .map(alias => normalizedMessage.indexOf(alias))
+          .filter(position => position !== -1);
+        const position = positions.length > 0 ? Math.min(...positions) : -1;
+        return { index, position };
+      })
+      .filter(candidate => candidate.position !== -1)
+      .sort((a, b) => a.position - b.position)[0];
+    if (mentionedBot) return mentionedBot.index;
+
+    const intent = this._detectChatIntent(message || '')[0] || 'generic';
+    const myTeam = players[this.myPlayerIndex]?.team;
+    const currentTurn = this.engine?.currentTurnIndex;
+    const context = this._getChatGameContext();
+    const allyIntents = new Set(['team_talk', 'praise', 'greeting', 'farewell']);
+    const enemyIntents = new Set(['provocation', 'truco_talk', 'frustration', 'confidence']);
+    const personaIntents = [
+      ['greeting', 'generic', 'praise'],
+      ['team_talk', 'score_talk', 'doubt'],
+      ['truco_talk', 'card_talk', 'confidence'],
+      ['provocation', 'frustration', 'laugh'],
+      ['farewell', 'reaction', 'generic']
+    ];
+
+    return botIndices
+      .map(index => {
+        const bot = players[index];
+        const isAlly = bot.team === myTeam;
+        let score = personaIntents[index % personaIntents.length].includes(intent) ? 4 : 0;
+        if (allyIntents.has(intent) && isAlly) score += 8;
+        if (enemyIntents.has(intent) && !isAlly) score += 8;
+        if (preferredTeam !== null && bot.team === preferredTeam) score += 10;
+        if (index === currentTurn) score += 2;
+        if (context && bot.team === 1 - myTeam && context.botScore > context.myScore) score += 1;
+        return { index, score };
+      })
+      .sort((a, b) => b.score - a.score)[0].index;
   }
 
   handleChatSend() {

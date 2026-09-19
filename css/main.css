@@ -569,6 +569,58 @@ body {
   word-break: break-word;
 }
 
+.chat-msg.other .chat-msg-bubble:not(.chat-typing-bubble) {
+  animation: chatMessageReveal 0.2s ease-out both;
+}
+
+.chat-typing-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 42px;
+  min-height: 18px;
+}
+
+.chat-typing-bubble span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: chatTypingDot 0.9s ease-in-out infinite;
+}
+
+.chat-typing-bubble span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.chat-typing-bubble span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes chatTypingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes chatMessageReveal {
+  from {
+    opacity: 0.4;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .chat-msg.mine .chat-msg-bubble {
   background: rgba(200, 160, 60, 0.15);
   border: 1px solid var(--gold-dim);

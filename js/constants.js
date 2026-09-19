@@ -44,10 +44,14 @@ const BET_STAGES = [
   { value: 12, label: 'Doze', nextLabel: null, nextValue: null }
 ];
 
+// A chave da Gemini não deve ser exposta no código enviado ao navegador.
+const GEMINI_API_ENDPOINT = null;
+
 window.TrucoConstants = {
   RANKS,
   SUITS,
   BASE_POWER,
   MANILHA_MAP,
-  BET_STAGES
+  BET_STAGES,
+  GEMINI_API_ENDPOINT
 };
