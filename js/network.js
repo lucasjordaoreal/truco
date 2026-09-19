@@ -5,19 +5,19 @@
 // Cadastro gratuito em https://www.metered.ca/ → Create App → copie a API KEY.
 // Sem ela o jogo cai para STUN apenas (funciona na mesma rede, falha em NATs diferentes).
 
-const METERED_API_KEY = ''; // ← Cole sua API KEY aqui após cadastro
+const METERED_API_KEY = '4fb42af1420c944e1c0f72c2580bf04f58c7';
 
-// Servidores STUN públicos (fallback sem API key — funciona em redes simples)
+// Servidores ICE/STUN/TURN — Metered Brasil + Fallbacks públicos
 const FALLBACK_ICE = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "turn:br.relay.metered.ca:80", username: "08f5b89ac123bcb60b8e4513", credential: "ponWXX5ybqFWy5Hk" },
+  { urls: "turn:br.relay.metered.ca:80?transport=tcp", username: "08f5b89ac123bcb60b8e4513", credential: "ponWXX5ybqFWy5Hk" },
+  { urls: "turn:br.relay.metered.ca:443", username: "08f5b89ac123bcb60b8e4513", credential: "ponWXX5ybqFWy5Hk" },
+  { urls: "turns:br.relay.metered.ca:443?transport=tcp", username: "08f5b89ac123bcb60b8e4513", credential: "ponWXX5ybqFWy5Hk" },
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:global.stun.twilio.com:3478' },
-  { urls: 'stun:openrelay.metered.ca:80' },
-  // TURN abertos do openrelay.metered.ca (sem API key, capacidade limitada)
-  { urls: 'turn:openrelay.metered.ca:80',       username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443',      username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  { urls: 'stun:global.stun.twilio.com:3478' }
 ];
 
 class TrucoNetwork {
@@ -48,7 +48,7 @@ class TrucoNetwork {
 
     if (METERED_API_KEY) {
       try {
-        const url = `https://lucasjordaoreal.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`;
+        const url = `https://truco.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`;
         const res = await fetch(url);
         if (res.ok) {
           const servers = await res.json();
