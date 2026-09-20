@@ -359,7 +359,7 @@ class TrucoMusic {
     this.startPromise = null;
     this.trackGains = [];
     this.volume = 0.16;
-    this.tracks = Array.from({ length: 17 }, (_, index) => `music/music${String(index).padStart(2, '0')}.mp3`);
+    this.tracks = Array.from({ length: 35 }, (_, index) => `music/music${String(index).padStart(2, '0')}.mp3`);
   }
 
   async start() {

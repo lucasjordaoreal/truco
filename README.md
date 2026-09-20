@@ -33,7 +33,7 @@ Jogue **solo contra bots inteligentes** ou convide amigos para partidas **multip
   - Síntese de áudio procedural sem dependência de arquivos externos de som.
   - Sons de atrito de carta no feltro, batida firme na mesa ao pedir Truco, sino de canga (empate), chimes de vitória, derrota e alertas de contagem regressiva.
   - Efeitos progressivos de contagem regressiva, com tons mais agudos e curtos conforme o tempo do turno termina, além de alerta sonoro de timeout.
-  - **Trilha sonora integrada** com 17 faixas em reprodução contínua e aleatória, análise automática de volume para equilibrar as músicas e botão independente para ligar ou desligar a música.
+  - **Trilha sonora integrada** com 35 faixas em reprodução contínua e aleatória, análise automática de volume para equilibrar as músicas e botão independente para ligar ou desligar a música.
   - Controles separados para silenciar os efeitos sonoros e a música de fundo.
 
 - **HUD e Interface Completa**:
