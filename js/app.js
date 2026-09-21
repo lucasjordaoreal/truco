@@ -2584,7 +2584,7 @@ class TrucoApp {
     const botName = this.engine?.players?.[botIndex]?.name || CHAT_BOT_NAMES[0];
     const typingMessage = this.showChatTyping(botName, botIndex);
     const thinkingDelay = 250 + Math.min(message.length * 5, 500);
-    setTimeout(() => this.solicitarRespostaGemini(message, botIndex, sourceAuthor).then((response) => {
+    setTimeout(() => this.solicitarRespostaBot(message, botIndex, sourceAuthor).then((response) => {
       typingMessage.remove();
       if (!response) {
         // Mantém a reação local caso a API esteja indisponível no modo solo.
@@ -2611,68 +2611,21 @@ class TrucoApp {
   }
 
   /**
-   * Solicita uma resposta curta da IA para uma mensagem do jogador.
-   * Retorna null quando a API falha, permitindo que o chat continue funcionando.
+   * Gera uma resposta curta sem depender de um serviço externo.
+  * A resposta é gerada localmente, sem chave ou serviço externo.
    * @param {string} mensagemUsuario - Mensagem enviada pelo jogador humano
    * @param {number|null} botIndex - Índice do bot que responderá
-  * @param {string} autorMensagem - Nome de quem iniciou a fala
-   * @returns {Promise<{text: string, botName: string, botIndex: number|null}|null>} Resposta formatada ou null
+   * @param {string} autorMensagem - Nome de quem iniciou a fala
+   * @returns {Promise<{text: string, botName: string, botIndex: number|null}>} Resposta formatada
    */
-  async solicitarRespostaGemini(mensagemUsuario, botIndex = null, autorMensagem = 'Jogador') {
-    try {
-      if (!window.TrucoConstants.GEMINI_API_ENDPOINT) return null;
+  async solicitarRespostaBot(mensagemUsuario, botIndex = null, autorMensagem = 'Jogador') {
+    const gameContext = this._getChatGameContext();
+    const selectedBotIndex = botIndex === null ? 0 : botIndex;
+    const botName = this.engine?.players?.[selectedBotIndex]?.name || CHAT_BOT_NAMES[0];
+    const intent = this._detectChatIntent(mensagemUsuario)[0] || 'generic';
+    const text = this._buildBotResponse(intent, gameContext, selectedBotIndex, mensagemUsuario);
 
-      const gameContext = this._getChatGameContext();
-      const botName = botIndex !== null && this.engine?.players?.[botIndex]
-        ? this.engine.players[botIndex].name
-        : CHAT_BOT_NAMES[0];
-      const botTeam = botIndex !== null ? this.engine?.players?.[botIndex]?.team : null;
-      const sourcePlayer = this.engine?.players?.find(player => player.name === autorMensagem);
-      const sourceIsAlly = sourcePlayer && botTeam !== null && sourcePlayer.team === botTeam;
-      const identityAliasText = botName === CHAT_BOT_NAMES[1]
-        ? 'Zeca e Zé são a mesma pessoa; use Zeca Mão de Onze como nome exibido.'
-        : '';
-      const matchFormatText = this.engine?.numPlayers === 2
-        ? 'Esta é uma partida 1v1. Você não tem parceiro: o jogador humano é seu único adversário e nunca deve ser tratado como aliado.'
-        : `Esta é uma partida ${this.engine?.numPlayers || 4}P. Respeite as equipes: bots da sua equipe são aliados e os demais são adversários.`;
-      const relationshipText = sourceIsAlly
-        ? `${autorMensagem} é seu parceiro de equipe. Converse com cooperação e nunca ameace ou trate essa pessoa como adversário.`
-        : `${autorMensagem} é adversário. Você pode provocar, mas continue jogando dentro do clima do truco.`;
-      const contextText = gameContext
-        ? `Contexto atual: placar ${gameContext.myScore} a ${gameContext.botScore}, vale ${gameContext.currentStake}, vasa ${gameContext.playerVasas} a ${gameContext.botVasas}.`
-        : 'Contexto atual: partida de truco em andamento.';
-
-      const prompt = `Você é ${botName}, um jogador de truco brasileiro sentado à mesa nesta partida.
-Fale com o mesmo linguajar informal, debochado e provocador dos bots do jogo, como uma conversa natural de mesa.
-Seu nome é exatamente "${botName}"; nunca troque, abrevie ou invente variações como "Pedro". Sua personalidade deve combinar com esse apelido. Use expressões de truco e referências à rodada quando fizer sentido. Pode fazer trash talk leve e usar gírias, mas nunca explique que é uma IA, nunca saia do personagem e nunca invente regras.
-${identityAliasText}
-${matchFormatText}
-Se a mensagem mencionar dois bots, o primeiro nome citado é quem foi chamado para falar; o segundo é apenas o personagem da conversa. Nunca trate o nome de outro bot como se fosse o nome do jogador humano.
-${relationshipText}
-Responda com uma única frase curta, idealmente entre 6 e 15 palavras, sem listas, discurso ou prefácio.
-${contextText}
-
-Mensagem de ${autorMensagem}: ${mensagemUsuario}`;
-
-      const response = await fetch(window.TrucoConstants.GEMINI_API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-        signal: AbortSignal.timeout(30000)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Gemini respondeu com HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      const text = data.text?.trim();
-      if (!text) throw new Error('Resposta vazia da Gemini');
-      return { text, botName, botIndex };
-    } catch (error) {
-      console.error('Não foi possível obter resposta da Gemini:', error);
-      return null;
-    }
+    return { text, botName, botIndex: selectedBotIndex };
   }
 
   _shouldContinueAiConversation(text, currentBotIndex) {

@@ -44,14 +44,10 @@ const BET_STAGES = [
   { value: 12, label: 'Doze', nextLabel: null, nextValue: null }
 ];
 
-// O Worker mantém a chave da Gemini fora do código enviado ao navegador.
-const GEMINI_API_ENDPOINT = 'https://truco.lucasjordao134.workers.dev/';
-
 window.TrucoConstants = {
   RANKS,
   SUITS,
   BASE_POWER,
   MANILHA_MAP,
-  BET_STAGES,
-  GEMINI_API_ENDPOINT
+  BET_STAGES
 };
