@@ -2583,7 +2583,7 @@ class TrucoApp {
 
     const botName = this.engine?.players?.[botIndex]?.name || CHAT_BOT_NAMES[0];
     const typingMessage = this.showChatTyping(botName, botIndex);
-    const thinkingDelay = 900 + Math.min(message.length * 18, 1200);
+    const thinkingDelay = 250 + Math.min(message.length * 5, 500);
     setTimeout(() => this.solicitarRespostaGemini(message, botIndex, sourceAuthor).then((response) => {
       typingMessage.remove();
       if (!response) {
@@ -2642,13 +2642,7 @@ class TrucoApp {
         ? `Contexto atual: placar ${gameContext.myScore} a ${gameContext.botScore}, vale ${gameContext.currentStake}, vasa ${gameContext.playerVasas} a ${gameContext.botVasas}.`
         : 'Contexto atual: partida de truco em andamento.';
 
-      const response = await fetch(window.TrucoConstants.GEMINI_API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Você é ${botName}, um jogador de truco brasileiro sentado à mesa nesta partida.
+      const prompt = `Você é ${botName}, um jogador de truco brasileiro sentado à mesa nesta partida.
 Fale com o mesmo linguajar informal, debochado e provocador dos bots do jogo, como uma conversa natural de mesa.
 Seu nome é exatamente "${botName}"; nunca troque, abrevie ou invente variações como "Pedro". Sua personalidade deve combinar com esse apelido. Use expressões de truco e referências à rodada quando fizer sentido. Pode fazer trash talk leve e usar gírias, mas nunca explique que é uma IA, nunca saia do personagem e nunca invente regras.
 ${identityAliasText}
@@ -2658,14 +2652,13 @@ ${relationshipText}
 Responda com uma única frase curta, idealmente entre 6 e 15 palavras, sem listas, discurso ou prefácio.
 ${contextText}
 
-Mensagem de ${autorMensagem}: ${mensagemUsuario}`
-            }]
-          }],
-          generationConfig: {
-            maxOutputTokens: 60,
-            temperature: 0.9
-          }
-        })
+Mensagem de ${autorMensagem}: ${mensagemUsuario}`;
+
+      const response = await fetch(window.TrucoConstants.GEMINI_API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+        signal: AbortSignal.timeout(30000)
       });
 
       if (!response.ok) {
@@ -2673,8 +2666,7 @@ Mensagem de ${autorMensagem}: ${mensagemUsuario}`
       }
 
       const data = await response.json();
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      const text = data.text?.trim();
       if (!text) throw new Error('Resposta vazia da Gemini');
       return { text, botName, botIndex };
     } catch (error) {
@@ -3425,7 +3417,6 @@ Mensagem de ${autorMensagem}: ${mensagemUsuario}`
 
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new TrucoApp();
-  window.TrucoMusic?.start?.();
   // Abre o lobby por padrão ao carregar
   document.getElementById('lobbyModal')?.classList.add('active');
 });

@@ -44,8 +44,8 @@ const BET_STAGES = [
   { value: 12, label: 'Doze', nextLabel: null, nextValue: null }
 ];
 
-// A chave da Gemini não deve ser exposta no código enviado ao navegador.
-const GEMINI_API_ENDPOINT = null;
+// O Worker mantém a chave da Gemini fora do código enviado ao navegador.
+const GEMINI_API_ENDPOINT = 'https://truco.lucasjordao134.workers.dev/';
 
 window.TrucoConstants = {
   RANKS,
