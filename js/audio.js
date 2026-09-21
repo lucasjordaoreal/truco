@@ -359,7 +359,10 @@ class TrucoMusic {
     this.startPromise = null;
     this.trackGains = [];
     this.volume = 0.16;
-    this.tracks = Array.from({ length: 35 }, (_, index) => `music/music${String(index).padStart(2, '0')}.mp3`);
+    this.tracks = Array.from({ length: 35 }, (_, index) => new URL(
+      `music/music${String(index).padStart(2, '0')}.mp3`,
+      document.baseURI
+    ).href);
   }
 
   async start() {
@@ -408,25 +411,20 @@ class TrucoMusic {
         } else {
           this.audio.volume = this.volume;
       }
-      this.audio.play().then(() => {
+      try {
+        await this.audio.play();
         this.playing = true;
-      }).catch((error) => {
+      } catch (error) {
         this.playing = false;
         this.lastPlayError = error;
-      });
+        return;
+      }
     }
     if (!this.ctx) {
       this.trackGains = this.tracks.map(() => 1);
       return;
     }
-    if (!this.trackGains.length) {
-      await this.analyzeTracks();
-      if (this.playing && !this.muted) {
-        this.gain.gain.setTargetAtTime(this.trackGains[this.trackIndex] * 0.16, this.ctx.currentTime, 0.03);
-      }
-      return;
-    }
-    await this.playNext();
+    this.trackGains = this.tracks.map(() => 1);
   }
 
   async analyzeTracks() {
