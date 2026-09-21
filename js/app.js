@@ -3425,6 +3425,7 @@ Mensagem de ${autorMensagem}: ${mensagemUsuario}`
 
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new TrucoApp();
+  window.TrucoMusic?.start?.();
   // Abre o lobby por padrão ao carregar
   document.getElementById('lobbyModal')?.classList.add('active');
 });
