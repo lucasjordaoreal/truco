@@ -2846,7 +2846,10 @@ class TrucoApp {
       ctx?.currentStake,
       ctx?.currentRound
     ].join('|'));
-    const pick = (arr) => arr[responseSeed % arr.length];
+    const pick = (arr) => {
+      const expanded = [...arr, ...this._getExpandedChatPhrases(intent, ctx, persona)];
+      return expanded[responseSeed % expanded.length];
+    };
 
     // Helpers de contexto
     const botWinning = ctx && ctx.botScore > ctx.myScore;
@@ -3157,6 +3160,175 @@ class TrucoApp {
         return pick(genericPool);
       }
     }
+  }
+
+  /**
+   * Combina frases por intenção, personalidade e estado da partida.
+   * As combinações são criadas sob demanda para manter o arquivo leve e
+   * garantir milhares de respostas sem repetir sempre o mesmo texto.
+   */
+  _getExpandedChatPhrases(intent, ctx, persona) {
+    const score = ctx ? `${ctx.botScore} a ${ctx.myScore}` : 'esse placar';
+    const stake = ctx?.currentStake || 1;
+    const round = ctx ? `${ctx.botVasas} vasa${ctx.botVasas === 1 ? '' : 's'} contra ${ctx.playerVasas}` : 'a próxima vasa';
+    const state = ctx?.botScore > ctx?.myScore
+      ? 'o placar está sorrindo para mim'
+      : ctx?.botScore < ctx?.myScore
+        ? 'a virada ainda está viva'
+        : 'a partida está equilibrada';
+
+    const commonOpeners = persona === 0
+      ? ['Olha só', 'Presta atenção', 'Vou te contar', 'Anota aí', 'Escuta bem', 'Repara nisso', 'Pode observar', 'Fica esperto']
+      : persona === 1
+        ? ['Kkkkk', 'Eita', 'Rapaz', 'Aí complica', 'Olha o drama', 'Segura essa', 'Que cena', 'Meu amigo']
+        : ['Chega de conversa', 'Escuta aqui', 'Vou ser direto', 'Prepara a mão', 'Sem medo', 'Agora é sério', 'Fica na mesa', 'Atenção']
+    ;
+    const contextLines = [
+      `o placar está ${score}`,
+      `estamos em ${round}`,
+      `a aposta está em ${stake}`,
+      state,
+      'cada carta pode mudar tudo',
+      'a próxima decisão pesa muito',
+      'a mesa está esperando sua jogada',
+      'truco se resolve na hora certa'
+    ];
+    const moods = {
+      agressivo: [
+        'vou pressionar até você errar',
+        'não vou aliviar nesta rodada',
+        'minha resposta vem pesada',
+        'a mesa vai sentir a pressão',
+        'não confunda calma com medo',
+        'eu vim para tomar essa vasa',
+        'cada provocação terá resposta',
+        'hoje não tem espaço para recuo',
+        'vou cobrar essa confiança'
+      ],
+      alegre: [
+        'a mesa está divertida demais',
+        'essa rodada merece comemoração',
+        'estou jogando com um sorriso',
+        'até o baralho entrou na festa',
+        'que partida gostosa de acompanhar',
+        'o bom humor também marca ponto',
+        'essa disputa está rendendo boas histórias',
+        'todo mundo saiu ganhando na diversão',
+        'a próxima carta promete mais risadas'
+      ],
+      triste: [
+        'essa mão não está ajudando muito',
+        'até o baralho parece estar contra mim',
+        'vou precisar buscar força onde não parece ter',
+        'essa vasa deixou um gosto amargo',
+        'a partida ficou mais difícil do que eu queria',
+        'não era a carta que eu esperava',
+        'ainda estou tentando recuperar o ânimo',
+        'uma virada seria bem-vinda agora',
+        'pelo menos ainda existe uma chance'
+      ]
+    };
+    const tails = [
+      'manda a próxima carta.',
+      'quero ver essa coragem na mesa.',
+      'não tira o olho da vira.',
+      'a conversa acaba quando a carta bate.',
+      'vamos descobrir quem tem leitura de jogo.',
+      'sem desculpa depois da vasa.',
+      'fica valendo até a última carta.',
+      'agora mostra se é estratégia ou sorte.'
+    ];
+
+    const intentLines = {
+      greeting: [
+        'bom te ver na mesa', 'chegou na hora certa', 'vamos começar esse duelo',
+        'seja bem-vindo ao baralho', 'a rodada já está aquecida', 'trouxe coragem hoje',
+        'senta e escolhe sua melhor carta', 'vamos fazer uma partida bonita'
+      ],
+      provocation: [
+        'fala bastante para quem ainda precisa ganhar a vasa', 'essa provocação vai entrar na conta',
+        'não confunda barulho com estratégia', 'guarda essa confiança para o próximo lance',
+        'eu respondo com carta, não com promessa', 'a mesa tem memória',
+        'seu discurso está melhor que sua mão', 'continua, que eu estou anotando'
+      ],
+      praise: [
+        'reconhecer uma boa jogada é sinal de respeito', 'essa leitura merece um aceno',
+        'foi uma jogada limpa', 'agora não deixa o elogio subir à cabeça',
+        'ainda tem muita partida pela frente', 'boa análise da mesa',
+        'a próxima carta é o verdadeiro teste', 'respeito recebido, pressão devolvida'
+      ],
+      truco_talk: [
+        'o pedido está na mesa', 'a aposta subiu e a coragem apareceu',
+        'quem chama precisa sustentar', 'o risco agora tem nome e número',
+        'a rodada ficou interessante', 'aumentar é fácil, aceitar é que mostra a mão',
+        'cada ponto vale uma decisão', 'a pressão começou de verdade'
+      ],
+      card_talk: [
+        'a vira está dando pistas', 'manilha não se anuncia antes da hora',
+        'carta forte também exige timing', 'o baralho ainda tem segredos',
+        'contar cartas ajuda, mas ler a mesa ajuda mais', 'a melhor carta é a que vence a vasa',
+        'não entrega sua intenção', 'o naipe pode mudar a conversa'
+      ],
+      score_talk: [
+        'o número conta uma história', 'placar apertado pede cabeça fria',
+        'a vantagem é temporária', 'pontos se conquistam vasa por vasa',
+        'olha o resultado, mas pensa no próximo lance', 'a diferença não joga sozinha',
+        'o jogo ainda tem espaço para virada', 'chegar aos doze é o objetivo'
+      ],
+      doubt: [
+        'pensar faz parte do jogo', 'a dúvida aparece quando a decisão importa',
+        'confia na leitura que você fez', 'nem toda pausa é medo',
+        'a resposta vem na carta', 'calcula o risco antes de falar',
+        'uma boa pergunta vale uma vasa', 'observa o ritmo da mesa'
+      ],
+      team_talk: [
+        'parceria boa conversa pouco e cobre muito', 'confia na leitura do parceiro',
+        'a dupla precisa jogar no mesmo ritmo', 'a vasa fica mais leve quando o time se entende',
+        'sinal certo, carta certa', 'ninguém ganha sozinho no truco de dupla',
+        'vamos fechar essa rodada juntos', 'o parceiro também está contando as cartas'
+      ],
+      farewell: [
+        'já vai abandonar a rodada', 'a mesa ainda nem mostrou tudo',
+        'volta quando quiser revanche', 'boa saída, mas a história não terminou',
+        'a próxima partida pode ser diferente', 'leva essa leitura para o próximo jogo',
+        'foi uma rodada digna', 'a porta fica aberta para mais uma'
+      ],
+      laugh: [
+        'essa risada veio antes da carta', 'bom humor ajuda a pensar',
+        'ri agora e observa a próxima vasa', 'a mesa ficou mais leve',
+        'pelo menos a diversão está garantida', 'essa foi boa mesmo',
+        'risada registrada no placar', 'não deixa a graça esconder a estratégia'
+      ],
+      frustration: [
+        'respira e olha a próxima oportunidade', 'azar faz parte, desistir não',
+        'a carta não aceita reclamação', 'uma vasa ruim não define a mão',
+        'transforma a frustração em leitura', 'o baralho ainda pode compensar',
+        'reclamar não muda a vira', 'a melhor resposta vem jogando'
+      ],
+      confidence: [
+        'confiança é boa quando vem com cálculo', 'não comemora antes da última carta',
+        'a mesa pune distração', 'mostra essa certeza na hora de pedir',
+        'jogo ganho só depois dos doze', 'a vantagem precisa ser protegida',
+        'coragem sem leitura vira aposta ruim', 'vamos conferir essa promessa'
+      ],
+      reaction: [
+        'essa reação diz bastante', 'entendi o recado', 'a mesa também sentiu',
+        'agora todo mundo está atento', 'sem palavras, só cartas', 'essa expressão foi anotada',
+        'a próxima vasa responde', 'calma que ainda tem jogo'
+      ],
+      generic: [
+        'a partida está só começando', 'a mesa está estudando cada movimento',
+        'o baralho não perdoa distração', 'joga no seu ritmo',
+        'a próxima vasa pode virar a mão', 'tem estratégia escondida nessa rodada',
+        'o momento pede atenção', 'vamos deixar as cartas falarem'
+      ]
+    };
+    const lines = intentLines[intent] || intentLines.generic;
+    return Object.entries(moods).flatMap(([mood, moodLines]) => moodLines.flatMap(moodLine =>
+      commonOpeners.flatMap(opener => lines.flatMap(line => contextLines.map(contextLine =>
+        `${opener} (${mood}): ${moodLine}; ${line}; ${contextLine}. ${tails[(opener.length + line.length + contextLine.length) % tails.length]}`
+      )))
+    ));
   }
 
   _getStableChatHash(value) {
